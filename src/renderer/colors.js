@@ -1,5 +1,5 @@
   // =========================================================================
-  // 模块 1: 0 级主题跟随、面板与菜单统一背景色、热力图 5 档色阶与自定义颜色选取器
+  // Module 1: Level-0 theme following, unified panel & menu background color, 5-level heatmap color scale & custom color picker
   // =========================================================================
   const COLOR_SLOTS = {
     panelBg: '--ag-custom-panel-bg',
@@ -84,7 +84,7 @@
     } catch {}
   }
 
-  // 色彩空间转换与格式化工具（HEX <-> RGB <-> HSV <-> HSL）
+  // Color space conversion and formatting utilities (HEX <-> RGB <-> HSV <-> HSL)
   function clampNum(n, min, max) {
     return Math.min(max, Math.max(min, Number.isFinite(n) ? n : min));
   }
@@ -395,7 +395,7 @@
       );
       resetHeatLvlsBtn.setAttribute('data-mode', anyHeatLvl ? 'custom' : 'auto');
     }
-    // 面板 A 中的镜像色块按钮同步
+    // Sync mirrored swatch buttons in Panel A
     const mirrorMap = {
       'swatch-panelBg-tokens': 'panelBg',
       'swatch-tokenTotal-tokens': 'tokenTotal',
@@ -606,7 +606,7 @@
   applyCustomColors();
 
   // =========================================================================
-  // 自定义「颜色选取器」面板交互逻辑（吸管 + 预设圆点 + SV主色区 + 色相条 + HEX/RGB/HSL）
+  // Custom "Color Picker" panel interaction logic (eyedropper + preset dots + SV area + hue bar + HEX/RGB/HSL)
   // =========================================================================
   let activePickerSlot = null;
   let activePickerAnchor = null;
@@ -766,7 +766,7 @@
 
   const getHeatLvlLabel = (idx) => t(`colors.lvl${idx}`);
 
-  // 绑定所有颜色色块与恢复按钮事件
+  // Bind events for all color swatches and reset buttons
   for (const key of Object.keys(COLOR_SLOTS)) {
     const inputEl = el(`color-${key}`);
     const resetBtn = el(`reset-${key}`);
@@ -788,7 +788,7 @@
     });
   }
 
-  // 热力图右下角「少 ▢▢▢▢▢ 多」5 个小色块图例直接点击弹出颜色选取器单独调色
+  // Clicking any of the 5 "Less ▢▢▢▢▢ More" legend swatches at bottom-right of heatmap opens the color picker for that level
   for (let i = 0; i < 5; i++) {
     const legBtn = el(`heat-leg-${i}`);
     const slotKey = `heatLvl${i}`;
@@ -809,7 +809,7 @@
     }
   });
 
-  // 面板 A 镜像色块与预设按钮事件
+  // Panel A mirrored swatch and preset button events
   ['swatch-panelBg-tokens', 'swatch-tokenTotal-tokens', 'swatch-tokenAccent-tokens'].forEach(id => {
     const btn = el(id);
     btn?.addEventListener('click', e => {
@@ -834,7 +834,7 @@
     }
   } catch {}
 
-  // 颜色选取器内部控件绑定（SV 拖拽、Hue 拖拽、预设圆点、吸管、HEX/RGB/HSL 输入与复制）
+  // Color picker internal control bindings (SV drag, Hue drag, preset dots, eyedropper, HEX/RGB/HSL input & copy)
   el('cp-close')?.addEventListener('click', () => closeColorPicker(false));
   el('cp-reset-slot')?.addEventListener('click', () => {
     if (activePickerSlot) {

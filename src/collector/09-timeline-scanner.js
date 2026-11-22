@@ -77,7 +77,7 @@ function parseTranscriptForSessionTimeline(transcriptPath, cascadeId, convDir, s
       while ((m = uuidExtractRe.exec(event.content)) !== null) {
         const childCid = m[1];
         if (!childCid || childCid.toLowerCase() === String(cascadeId).toLowerCase()) continue;
-        // 寻找紧邻前文的 invoke_subagent 调用以定位准确父步骤和 Role/TypeName
+        // Locate the immediately preceding invoke_subagent call to pinpoint the exact parent step and Role/TypeName
         let matchedInvoke = null;
         for (let pIdx = pendingInvokes.length - 1; pIdx >= 0; pIdx--) {
           const inv = pendingInvokes[pIdx];
@@ -155,7 +155,7 @@ function parseTranscriptForSessionTimeline(transcriptPath, cascadeId, convDir, s
 const subagentParentIndexCache = { dirMtimesKey: '', byParent: new Map(), at: 0 };
 
 /**
- * 基于目录签名缓存扫描所有可用根目录 conversations/*.db，查找显式记录了 parentCascadeId / rootCascadeId 的子代理会话。
+ * Scan conversations/*.db across all available root directories using directory signature caching to find subagent sessions that explicitly record parentCascadeId / rootCascadeId.
  */
 function findSubagentChildrenFromConvDirs(parentCascadeId, convDirs = [], options = {}) {
   if (!parentCascadeId || options.fs || isFsMonkeyPatched()) return [];
@@ -208,7 +208,7 @@ function findSubagentChildrenFromConvDirs(parentCascadeId, convDirs = [], option
 }
 
 /**
- * 聚合指定会话的按用户轮次请求时间线与可验证子代理调用（仅只读访问，复用现有本地目录与账本）。
+ * Aggregate per-user-turn request timelines and verifiable subagent calls for a given session (read-only access, reusing existing local directories and ledger).
  */
 async function collectSessionTimelineCoreAsync(cascadeId, options = {}) {
   const cid = String(cascadeId || '').trim();
@@ -244,7 +244,7 @@ async function collectSessionTimelineCoreAsync(cascadeId, options = {}) {
     return null;
   };
 
-  // 1. 解析主会话自身 transcript + .db
+  // 1. Parse main session's own transcript + .db
   const mainFile = findTranscriptForCid(cid);
   if (mainFile) {
     const parsed = parseTranscriptForSessionTimeline(mainFile.path, cid, mainFile.convDir, mainFile.source, options);
@@ -264,7 +264,7 @@ async function collectSessionTimelineCoreAsync(cascadeId, options = {}) {
     }
   }
 
-  // 2. 合并前端 / RPC 传入的 liveSteps（识别当前尚未写入磁盘的最新轮次与 invoke_subagent 调用）
+  // 2. Merge liveSteps passed from frontend / RPC (identifying latest turns and invoke_subagent calls not yet flushed to disk)
   if (Array.isArray(options.liveSteps) && options.liveSteps.length) {
     for (let idx = 0; idx < options.liveSteps.length; idx++) {
       const s = options.liveSteps[idx];
@@ -288,7 +288,7 @@ async function collectSessionTimelineCoreAsync(cascadeId, options = {}) {
     }
   }
 
-  // 3. 合并来自当前会话 RPC / 前端传来的 liveCalls
+  // 3. Merge liveCalls from current session RPC / frontend
   const cascadeConfigs = Array.isArray(options.cascadeModelConfigs) ? options.cascadeModelConfigs : [];
   if (Array.isArray(options.liveCalls)) {
     for (const c of options.liveCalls) {
@@ -306,7 +306,7 @@ async function collectSessionTimelineCoreAsync(cascadeId, options = {}) {
     }
   }
 
-  // 4. 合并本地 pricing_ledger_v1.json 中当前会话（及其子代理）的持久化记录
+  // 4. Merge persisted records for the current session (and its subagents) from local pricing_ledger_v1.json
   const ledger = loadPricingLedger(agDir, options.fs ? { fs: options.fs } : undefined);
   const ledgerCalls = ledger && ledger.calls && typeof ledger.calls === 'object' ? Object.values(ledger.calls) : [];
   const normCid = cid.toLowerCase();
@@ -317,7 +317,7 @@ async function collectSessionTimelineCoreAsync(cascadeId, options = {}) {
     }
   }
 
-  // 5. 发现基于 .db parent_cascade_id / root_cascade_id 的可验证子代理会话
+  // 5. Discover verifiable subagent sessions based on .db parent_cascade_id / root_cascade_id
   const dbChildren = findSubagentChildrenFromConvDirs(cid, rootEntries.map(r => path.join(r.dir, 'conversations')), options);
   for (const dc of dbChildren) {
     const k = dc.childCid.toLowerCase();
@@ -336,7 +336,7 @@ async function collectSessionTimelineCoreAsync(cascadeId, options = {}) {
     }
   }
 
-  // 6. 读取所有已验证关联子代理的 transcript + .db + ledger 调用
+  // 6. Read transcript + .db + ledger calls for all verified linked subagents
   const subagentLinks = Array.from(subagentMap.values());
   for (const link of subagentLinks) {
     const childFile = findTranscriptForCid(link.childCid);
@@ -419,7 +419,7 @@ if (!isMainThread && workerData && workerData.agCollectorHistoryWorker && parent
       } else if (cmd === 'recordModelCalls') {
         const opts = { ...(payload?.options || {}), _inWorker: true };
         const result = recordModelCalls(payload?.newCalls || [], opts);
-        // createRecordResult 附带 valueOf 函数，跨 Worker 边界时须剥离函数属性避免 StructuredClone 抛 DataCloneError
+        // createRecordResult attaches a valueOf function; strip function properties across Worker boundaries to avoid StructuredClone throwing DataCloneError
         const plainResult = {
           ok: result ? result.ok !== false : false,
           changed: Boolean(result && result.changed),
@@ -449,11 +449,11 @@ if (!isMainThread && workerData && workerData.agCollectorHistoryWorker && parent
 function collectTokenHistory(options = {}) {
   const scopeKey = getEffectiveScanScopeKey(options);
   const canCacheByScope = !options.fs && !options.hostFetcher && !options.customPlan;
-  // 同步封装：如果缓存可用直接返回，否则启动异步刷新并返回缓存或空壳
+  // Synchronous wrapper: return cache directly if available; otherwise trigger async refresh and return cached or empty shell
   if (!options.force && canCacheByScope && cachedTokenHistory && cachedTokenHistoryScope === scopeKey && Date.now() - cachedTokenHistoryAt < 15000) {
     return cachedTokenHistory;
   }
-  // 触发异步更新
+  // Trigger async update
   void collectTokenHistoryAsync(options);
   return (cachedTokenHistory && cachedTokenHistoryScope === scopeKey) ? cachedTokenHistory : {
     schemaVersion: PROJECT_VERSION,

@@ -1,5 +1,5 @@
   // =========================================================================
-  // 模块 5: 模型额度看板（ELV-34）—— 顶栏圆环入口、共享池归组、多状态机与定时刷新
+  // Module 5: Model Quota Dashboard (ELV-34) — topbar ring entry, shared pool grouping, multi-state machine, and scheduled refresh
   // =========================================================================
   const QUOTA_REFRESH_FG_MS = 60000;
   const QUOTA_REFRESH_BG_MS = 180000;
@@ -68,7 +68,7 @@
 
   function triggerQuotaBarsChargeAnimation(targets) {
     if (!Array.isArray(targets) || !targets.length) return false;
-    // 动画进行中不堆积或重启多轮播放；减少动态效果下交由静态提示处理
+    // Do not stack or restart multiple plays while animation is running; delegate to static indicator under reduced motion
     if (quotaBarChargePlaying || isQuotaReducedMotion()) return false;
     const panelQuotaEl = el('panel-quota');
     if (!panelQuotaEl || panelQuotaEl.hidden) return false;
@@ -86,7 +86,7 @@
       setQuotaHiddenIfChanged(ref.chargeStage, false);
       quotaActiveChargeRefs.add(ref);
     }
-    // 仅触发单次整体可见性提交，确保后续 CSS 关键帧从 0% 平滑起播
+    // Trigger only a single overall visibility commit so subsequent CSS keyframes start smoothly from 0%
     if (typeof panelQuotaEl.offsetHeight === 'number') void panelQuotaEl.offsetHeight;
     for (const ref of validRefs) {
       setQuotaAttrIfChanged(ref.track, 'data-charging', 'true');
@@ -169,7 +169,7 @@
     } catch { }
   }
 
-  // 仅在值实际改变时写入 DOM，避免重复替换 Text 节点或重设属性引发重排与闪烁
+  // Write to DOM only when value actually changes to avoid repeated Text node replacement or attribute resets causing reflow and flicker
   function setQuotaTextIfChanged(node, text) {
     if (!node) return;
     const next = text == null ? '' : String(text);
@@ -536,7 +536,7 @@
     const core = typeof __AGContextMeterCore !== 'undefined' ? __AGContextMeterCore : null;
     const currentModelInput = getActiveQuotaModelInput();
 
-    // 1. 优先复用 rawInput 通过 buildModelQuotaSnapshot 完整演算（支持测试注入原始响应或本地配置变更）
+    // 1. Prefer recomputing via buildModelQuotaSnapshot from rawInput (supports test-injected raw responses or local config changes)
     if (quotaState.rawInput && core?.buildModelQuotaSnapshot) {
       const built = core.buildModelQuotaSnapshot({
         ...quotaState.rawInput,
@@ -554,7 +554,7 @@
       return attachTokenEstimatesToQuotaView(built, nowMs);
     }
 
-    // 2. 基于主进程返回的标准化 snapshot 重新结合当前会话模型与实时 nowMs 刷新视图状态
+    // 2. Refresh view state from standardized main-process snapshot combined with current session model and live nowMs
     const base = quotaState.snapshot;
     if (!base) {
       const hasErr = Boolean(quotaState.error);
@@ -621,7 +621,7 @@
       };
     });
 
-    // 针对实时切换后的会话模型重新匹配池与模型
+    // Re-match pool and model for live-switched session model
     const tStr = currentModelInput
       ? String(currentModelInput.modelId || currentModelInput.label || '').trim().toLowerCase()
       : '';
@@ -861,7 +861,7 @@
         fillEl.className = 'quota-bar-fill';
         track.appendChild(fillEl);
 
-        // 独立充能动画层：裁剪在真实比例宽度内，绝不归零底层也不填满到 100%
+        // Independent charging animation layer: clipped within actual percentage width; never drops base to zero or fills to 100%
         const chargeStage = document.createElement('div');
         chargeStage.className = 'quota-bar-charge-stage';
         chargeStage.hidden = true;
@@ -997,7 +997,7 @@
     }
     quotaLastSnapshotSig = currentSig;
 
-    // 1. 渲染顶栏圆环入口与窄屏溢出菜单项（不只靠颜色，必含数值/状态短文本）
+    // 1. Render topbar ring entry and narrow-screen overflow menu item (must include short value/status text, not color alone)
     const bQuota = el('badge-quota');
     const qFill = el('quota-ring-fill');
     const qVal = el('quota-badge-val');
@@ -1201,7 +1201,7 @@
     }
     if (state.quotaTooltipOpen) positionQuotaTooltip();
 
-    // 2. 刷新按钮与横幅渲染（请求中维持现有文字、宽度与卡片数据，避免闪烁与布局抽动）
+    // 2. Render refresh button and banner (preserve existing text, width, and card data during request to prevent flicker and layout shift)
     const btnRefresh = el('btn-quota-refresh');
     const txtRefresh = el('quota-refresh-text');
     if (btnRefresh) {
@@ -1292,7 +1292,7 @@
       }
     }
 
-    // 三时间分列渲染：数据更新时间 / 下次自动刷新 / 当前额度重置
+    // Three-column timestamp display: Data Updated / Next Auto-Refresh / Current Quota Reset
     const tUpd = el('quota-time-updated');
     const tNext = el('quota-time-next');
     const tReset = el('quota-time-reset');
@@ -1336,7 +1336,7 @@
       if (tReset.title !== resetStr) tReset.title = resetStr;
     }
 
-    // 当前会话模型概览卡片
+    // Current session model overview card
     const curModelEl = el('quota-cur-model');
     const curPoolEl = el('quota-cur-pool');
     const curEstEl = el('quota-cur-est');
@@ -1393,7 +1393,7 @@
       );
     }
 
-    // 共享额度池列表（原地复用已有 DOM 卡片，禁止整块摧毁重排，兼顾轻量 mock DOM）
+    // Shared quota pool list (reuse existing DOM cards in place; never destroy and rebuild whole block; compatible with lightweight mock DOM)
     const listEl = el('quota-pools-list');
     if (listEl) {
       if (!view.pools.length) {
@@ -1586,7 +1586,7 @@
   function scheduleQuotaResetConfirmIfNeeded(view, nowMs = Date.now()) {
     if (state.disposed) return;
     if (quotaResetTimer) { clearTimeout(quotaResetTimer); quotaResetTimer = null; }
-    // 找到未来最近的 resetAtMs 并设定到点 +2s 自动刷新；若刚过 reset 且尚未确认重拉则安排一次即时确认
+    // Find nearest future resetAtMs and schedule auto-refresh at reset +2s; if reset just passed without confirmed refetch, schedule an immediate confirmation
     let soonestFutureMs = null;
     let passedKey = null;
     for (const p of (view.pools || [])) {
@@ -1913,7 +1913,7 @@
   });
 
   // =========================================================================
-  // 多账号账本筛选、切号交互、ELV-57 配额对照表与 ELV-52 保活保障渲染
+  // Multi-account ledger filter, account switching, ELV-57 quota comparison table, and ELV-52 keepalive guard rendering
   // =========================================================================
 
   function syncTokenAccountFilterOptions(payload = null) {
@@ -2031,7 +2031,7 @@
     const isEn = currentPanelLanguage === 'en';
     const isTw = currentPanelLanguage === 'zh-TW';
 
-    // 1. 工具按钮显隐与反馈横幅
+    // 1. Tool button visibility and feedback banner
     const toolsBtn = el('btn-acct-import-tools');
     if (toolsBtn) {
       toolsBtn.hidden = !(accountsUiState.toolsPreview?.available && (accountsUiState.toolsPreview.count || 0) > 0);
@@ -2072,7 +2072,7 @@
       fbEl.className = `quota-acct-feedback${displayTone === 'error' ? ' is-error' : (displayTone === 'success' ? ' is-success' : '')}`;
     }
 
-    // 2. 账号清单
+    // 2. Account list
     const listEl = el('quota-accounts-list');
     if (listEl) {
       const prevScrollTop = Number(listEl.scrollTop || 0);
@@ -2169,7 +2169,7 @@
       }
     }
 
-    // 3. 自动切号状态与控件回填（编辑时跳过输入项覆盖，防破坏草稿）
+    // 3. Auto-switch status and control backfill (skip overwriting inputs while editing to protect drafts)
     const stPill = el('auto-switch-status-pill');
     const lastNote = el('auto-switch-last-note');
     const stKeys = new Set(['disabled', 'watching', 'pending_debounce', 'waiting_idle', 'cooldown', 'switching', 'all_candidates_exhausted', 'blocked_untrusted_quota', 'error']);
@@ -2227,7 +2227,7 @@
       }
     }
 
-    // 4. ELV-57 配额变化对照表
+    // 4. ELV-57 quota change comparison table
     const cmpEl = el('quota-compare-list');
     if (cmpEl) {
       cmpEl.replaceChildren();
@@ -2275,7 +2275,7 @@
       }
     }
 
-    // 5. ELV-52 保活协议证据与安全控制
+    // 5. ELV-52 keepalive protocol evidence and safety controls
     const kaPill = el('keepalive-status-pill');
     const kaProto = el('keepalive-protocol-summary');
     const kaExp = el('keepalive-experiment-summary');
@@ -2585,7 +2585,7 @@
         lastTimelineFetchAt: 0, lastTimelineCallSig: '',
         speedBreakdownOpen: false, streamSampleTracker: null, lastSpeedEval: null, speedOverrideForTest: null
       });
-      // 避免切换会话后立刻撞上 15s 周期历史刷新，若已做过同步则确保至少留出 7s 窗口给当前会话优先加载
+      // Avoid colliding with the 15s periodic history refresh right after switching sessions; if already synced, reserve at least a 7s window for the current session to load first
       if (lastHistorySync > 0) {
         lastHistorySync = Math.max(lastHistorySync, Date.now() - 8000);
       }
@@ -2618,7 +2618,7 @@
   }
 
   const timer = setInterval(tick, 500);
-  // 监听 SPA 路由跳转，切会话微任务内立即清旧状态并发起新会话采集，消除轮询间隙旧数据残留
+  // Listen to SPA route changes; clear stale state and start new session collection in a microtask on switch to eliminate stale data between polls
   let routeHookScheduled = false;
   const scheduleImmediateRouteTick = () => {
     if (routeHookScheduled || state.disposed) return;

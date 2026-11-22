@@ -1,5 +1,5 @@
   // =========================================================================
-  // 模块 4: 数据渲染、完整本地 Token 历史读取与首次使用日起算时间轴
+  // Module 4: Data rendering, full local token history loading, and timeline anchored at first-use date
   // =========================================================================
   function renderFiles(session) {
     const parent = el('files');
@@ -128,13 +128,13 @@
     return null;
   }
 
-  // 计算从「实际首次使用日」起算的 12 个月（52 周 = 364 天）展示窗口，绝不展示首次使用日之前的日期
+  // Compute 12-month (52 weeks = 364 days) display window starting from "actual first-use date"; never display dates prior to first use
   function computeTimelineWindow() {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const firstStr = getFirstUseDateStr();
     const firstDate = firstStr ? (parseLocalYmd(firstStr) || today) : today;
-    const totalDays = 52 * 7; // 364 天（12 个月 / 52 周）
+    const totalDays = 52 * 7; // 364 days (12 months / 52 weeks)
     const elapsedDays = Math.max(0, Math.floor((today.getTime() - firstDate.getTime()) / 86400000)) + 1;
 
     let winStart;
@@ -143,14 +143,14 @@
     let canNext = false;
 
     if (elapsedDays <= totalDays) {
-      // 使用未满一年：起点固定为实际首次使用日，向后铺满 12 个月（前置空白为 0）
+      // Less than one year of usage: fix start at actual first-use date and fill forward 12 months (leading empty cells are 0)
       heatPageOffset = 0;
       winStart = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
       winEnd = addDays(winStart, totalDays - 1);
     } else {
-      // 使用满一年后：默认窗口滚动为「以今天结尾的最近 12 个月」，且起点永不早于首次使用日；支持 ‹ / › 翻页回看更早归档
+      // After one full year of usage: default window rolls as "recent 12 months ending today", with start never earlier than first-use date; supports ‹ / › paging to view earlier archives
       const latestStart = addDays(today, -(totalDays - 1));
-      const stepDays = 26 * 7; // 每次翻页半年度（26 周）
+      const stepDays = 26 * 7; // Page by half-year (26 weeks) per step
       let candidateStart = addDays(latestStart, heatPageOffset * stepDays);
       if (candidateStart.getTime() <= firstDate.getTime()) {
         candidateStart = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
@@ -262,7 +262,7 @@
     ANTIGRAVITY_TOKEN_DATA.rawPayload = payload;
     syncTokenAccountFilterOptions(payload);
 
-    // 若选择了指定账号或“历史未归属”，构造彻底隔离的账本视图（全量指标、热力图、按模型与费用同步切换，绝不泄漏全局总量）
+    // When a specific account or "Unattributed History" is selected, build a strictly isolated ledger view (all metrics, heatmap, per-model, and cost switch together; never leak global totals)
     const isScopedAccountFilter = activeTokenAccountFilter !== 'all';
     let viewPayload = payload;
     if (isScopedAccountFilter) {
@@ -534,7 +534,7 @@
       };
     }
 
-    // 重新汇总卡片统计与顶栏
+    // Re-aggregate card stats and topbar
     const sum = ANTIGRAVITY_TOKEN_DATA.summary;
     const totalTokens = sum.grandTotalTokens;
     const shownToday = sum.todayTokens;
@@ -651,7 +651,7 @@
       }
     }
 
-    // 聚合全周期各区间预估费用
+    // Aggregate estimated costs across all periods
     const allDateKeys = Object.keys(ANTIGRAVITY_TOKEN_DATA.dailyMap || {});
     const nowYmd = todayStr;
     const thisMonthPrefix = nowYmd.slice(0, 7);
@@ -703,7 +703,7 @@
       tYearCost.title = isScopedEmptyAccount ? '' : formatUsdMetricTooltip(yearCostAgg.totalCostUSD);
     }
 
-    // 规范化已完整保留输入/缓存/输出分类，执行费用视图渲染
+    // Normalization preserves input/cache/output categories completely; execute cost view render
     renderActiveCostEstimateView();
     renderModelUsageView();
 
@@ -758,7 +758,7 @@
       let settingsRes = null;
       const currentEmail = ANTIGRAVITY_TOKEN_DATA.planStatus?.email || 'default';
 
-      // 权威配置同步：宿主通信桥接可用时，以宿主最新持久化配置为准，避免启动快照覆盖最新状态
+      // Authoritative config sync: when host IPC bridge is available, treat host's latest persisted config as source of truth so startup snapshot never overwrites newer state
       const ipcFn = (typeof window !== 'undefined' && typeof window.contextMeterAPI?.getSettings === 'function')
         ? () => window.contextMeterAPI.getSettings({ email: currentEmail })
         : null;
@@ -776,7 +776,7 @@
         settingsRes = window.__AGContextMeterSettings;
       }
 
-      // 若在网络等待期间有更新的恢复请求完成或用户发生了最新主动修改，丢弃旧回包！
+      // If a newer restore request completed or user made a newer manual edit while awaiting network, discard stale response!
       if (thisSeq < restoreRequestSeq || userActionSeq > startActionSeq) {
         return;
       }
@@ -863,7 +863,7 @@
         } catch { }
         applyCustomPlanObjectLocally(settingsRes.customPlan, email);
       } else {
-        // 回退检查 localStorage
+        // Fallback check localStorage
         const email = ANTIGRAVITY_TOKEN_DATA.planStatus?.email || 'default';
         const key = email && email !== 'default' ? 'ag_custom_plan_' + String(email).toLowerCase() : 'ag_custom_plan_default';
         const savedRaw = localStorage?.getItem(key) || localStorage?.getItem('ag_custom_plan_default');
@@ -1030,7 +1030,7 @@
       if (restartBtn.style) restartBtn.style.display = show ? 'inline-block' : 'none';
     };
 
-    // 检查桥接是否存在；若缺失则直接判定为更新功能不可用，严禁显示“最新”
+    // Check if bridge exists; if missing, mark update feature unavailable and never show "Up to date"
     const currentVer = typeof METER_VERSION !== 'undefined' ? METER_VERSION : '0.8.8';
     const currentDisplayVer = formatDisplayVersion(currentVer);
     const hasIpcUpdateBridge = typeof window !== 'undefined' && typeof window.contextMeterAPI?.checkUpdate === 'function';
@@ -1069,7 +1069,7 @@
       });
       const res = out.result;
 
-      // 返回 null、非对象或 ok: false 均为检查失败，严禁显示“最新”
+      // Null, non-object, or ok: false all count as check failure; never show "Up to date"
       if (!res || res.ok === false) {
         cachedLatestRelease = null;
         if (dot) dot.style.display = 'none';
@@ -1288,7 +1288,7 @@
     const tipPct = el('ctx-tip-pct');
     const tipDetail = el('ctx-tip-detail');
 
-    // 区分常态颜色与高占用告警状态
+    // Distinguish normal color from high-usage warning state
     let occupancy = 'normal';
     if (danger || (pct != null && pct >= 90)) {
       occupancy = 'danger';
@@ -1297,7 +1297,7 @@
     }
     host.setAttribute('data-occupancy', occupancy);
 
-    // 1. 圆环进度与未知容量状态表达（未知容量绝不画成 0% 或 100%）
+    // 1. Ring progress and unknown capacity state expression (never draw unknown capacity as 0% or 100%)
     if (ringFill) {
       if (d?.exceeded) {
         ringFill.setAttribute('data-ring-state', 'exceeded');
@@ -1314,14 +1314,14 @@
           ringFill.style.opacity = '1';
         }
       } else {
-        // 容量未知 / 仅估算 / 尚未就绪：使用均匀虚线环段表示非确定比例，不画成 0% 空环或 100% 满环
+        // Unknown capacity / estimated only / not ready: use dashed ring segments to represent indeterminate ratio instead of 0% empty or 100% full
         ringFill.setAttribute('data-ring-state', d?.estimated ? 'estimated' : 'unknown');
         ringFill.setAttribute('stroke-dasharray', '3.2 4.97');
         ringFill.style.opacity = '0.55';
       }
     }
 
-    // 2. 悬停信息气泡三层文案（标题 — 使用比例 — 用量与容量）
+    // 2. Three-tier hover info tooltip copy (Title — Usage Ratio — Usage & Capacity)
     if (!tipTitle || !tipPct || !tipDetail) return;
 
     const disp = resolveDisplayStatus(d, session);
@@ -2015,7 +2015,7 @@
         mergedById.set(norm.callId, norm);
         continue;
       }
-      // 同一 callId 从不同源补齐耗时、精确模型或状态，不产生第二条
+      // Enrich latency, exact model, or status for the same callId from different sources without creating a duplicate entry
       mergedById.set(norm.callId, {
         ...prev,
         ...norm,
@@ -2634,7 +2634,7 @@
     renderLatestCallCard();
   }
 
-  // 渲染上下文与全局状态（无论在主页 / 还是会话页 /c/<id>，始终保持插件栏挂载与可用）
+  // Render context and global state (keep plugin bar mounted and available on both home / and session /c/<id>)
   function render() {
     host.hidden = false;
     host.setAttribute('data-has-session', state.route ? 'true' : 'false');
@@ -2682,7 +2682,7 @@
 
     syncContextModelSelectionFromState();
 
-    // 若观测到的上下文预算变化且抽屉已展开或尚未读取状态，触发一次轻量同步（不再据此判定真实请求已验证）
+    // If observed context budget changed and drawer is open or state hasn't been read yet, trigger one lightweight sync (no longer marks real request as verified from this)
     if (d?.budget && d.budget !== lastAutoObservedBudget && d.budget > 256000) {
       lastAutoObservedBudget = d.budget;
       if (currentUnlockStatus || (unlockDrawerBody && unlockDrawerBody.style.display === 'block')) {
@@ -2724,7 +2724,7 @@
       setHoverExtra(` · ${corpus}`);
     }
 
-    // 渲染输出速度 (统一使用 tok/s)
+    // Render output speed (uniformly in tok/s)
     const sp = d?.speed;
     const speedBadge = el('badge-speed');
     const speedHoverExtra = el('speed-hover-extra');
@@ -2766,7 +2766,7 @@
           if (keyLimit) keyLimit.textContent = d.serviceLimit ? short(d.serviceLimit) : short(budgetTokenCount);
           if (keyRemaining) keyRemaining.textContent = t('key.overflowRem');
         } else {
-          // 非超限错误：保留已有上下文用量，标明其状态，不归零、不清空
+          // Non-overflow error: keep existing context usage and mark its status without resetting or clearing
           if (keyUsed) {
             keyUsed.textContent = usedTokenCount != null ? (d?.actual != null ? `${short(usedTokenCount)}${pct != null ? ` (${pct.toFixed(1)}%)` : ''}` : t('key.estShort', { val: short(usedTokenCount) })) : '—';
           }
@@ -3423,7 +3423,7 @@
       state.sessionCalls = Array.from(state.sessionCallsMap.values());
       state.sessionCostTotal = state.sessionCalls.reduce((sum, c) => sum + (c.isPriced ? (c.costUSD || 0) : 0), 0);
 
-      // 清除等待首字计时器（禁止用 1000ms 轮询步进时间戳伪造服务器分块流式间隔，避免误判为“输出平稳”）
+      // Clear waiting-for-first-token timer (never forge server chunk streaming intervals with 1000ms polling ticks, to avoid false "smooth output" readings)
       const newestPollCall = state.sessionCalls.length ? state.sessionCalls[state.sessionCalls.length - 1] : null;
       if (newestPollCall) {
         if (state.livePendingRequest && state.livePendingRequest.cascadeId === id) {

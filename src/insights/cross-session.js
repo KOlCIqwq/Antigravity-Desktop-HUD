@@ -145,7 +145,7 @@ function readAnnotationMeta(cid, agDir, agCliDir) {
 }
 
 /**
- * 聚合跨会话洞察数据（会话卡片、7 日趋势、常用工具/命令/技能分布）
+ * Aggregate cross-session insights data (session cards, 7-day trends, top tools/commands/skills distribution)
  */
 async function collectCrossSessionInsights(origin, options = {}) {
   const cacheKey = `${origin || '__local__'}|${options.agDir || ''}`;

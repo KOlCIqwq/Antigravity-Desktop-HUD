@@ -4,7 +4,7 @@
       -webkit-app-region:no-drag;user-select:none;display:inline-flex;align-items:center;gap:5px;
       height:28px;flex-shrink:0;vertical-align:middle;
 
-      /* 优先复用 Antigravity 0 级宿主主题变量，无变量时回退深色默认值 */
+      /* Prefer reusing Antigravity tier-0 host theme variables; fall back to dark defaults when absent */
       --ag-toolbar-fg:var(--secondary-foreground,#b8b8c0);
       --ag-toolbar-fg-hover:var(--foreground,#ececef);
       --ag-toolbar-bg:rgba(255,255,255,0.045);
@@ -17,7 +17,7 @@
       --ag-pill-active-border:#0A84FF;
       --ag-pill-active-bg:rgba(10,132,255,0.13);
 
-      /* 圆环与各指标默认主题色 */
+      /* Default theme colors for rings and metrics */
       --ag-ring-track-default:rgba(255,255,255,0.20);
       --ag-ring-used-default:#e6e6eb;
       --ag-ring-warn:#f59e0b;
@@ -28,7 +28,7 @@
       --ag-token-total-default:#b8b8c0;
       --ag-token-accent-default:#a78bfa;
 
-      /* 0 级主题背景与一级/二级严格统一背景色 */
+      /* Tier-0 theme background and strictly unified tier-1/tier-2 background colors */
       --ag-bg-panel-default:var(--ag-host-bg,var(--background,#181818));
       --ag-unified-bg:var(--ag-custom-panel-bg,var(--ag-bg-panel-default));
 
@@ -44,7 +44,7 @@
       --ag-text-muted:#8a8a94;
       --ag-border-subtle:rgba(255,255,255,0.08);
 
-      /* 一级面板与二级内部菜单/卡片/抽屉背景严格一致 */
+      /* Strictly consistent background across tier-1 panels and tier-2 internal menus/cards/drawers */
       --ag-bg-card:var(--ag-unified-bg);
       --ag-bg-card-hover:var(--ag-unified-bg);
       --ag-border-card:rgba(255,255,255,0.09);
@@ -92,13 +92,13 @@
       color:var(--ag-text-primary);
     }
 
-    /* 融入宿主原生布局容器时参与正常 Flexbox 空间分配 */
+    /* Participate in normal Flexbox space allocation when embedded in host native layout container */
     :host([data-dock="flow"]){
       position:relative !important;top:auto !important;right:auto !important;left:auto !important;bottom:auto !important;z-index:20;
       margin-right:4px;
     }
 
-    /* 窗口非活动状态适度降低顶栏对比度 */
+    /* Moderately reduce topbar contrast when window is inactive */
     :host([data-window-active="false"]) .ag-unit{
       opacity:0.72;
     }
@@ -107,7 +107,7 @@
       opacity:1;
     }
 
-    /* 浅色模式规范（与 0 级浅色主题协调，且一级/二级背景严格统一） */
+    /* Light mode spec (harmonized with tier-0 light theme, with strictly unified tier-1/tier-2 backgrounds) */
     :host([data-theme="light"]),
     :host([data-panel-tone="light"]){
       --ag-toolbar-fg:#52525b;
@@ -200,7 +200,7 @@
     button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
     button:focus-visible{outline:1.5px solid var(--ag-toolbar-border-focus);outline-offset:1px}
 
-    /* Basic Unit: Prototype B Quiet Inspector 胶囊单元 */
+    /* Basic Unit: Prototype B Quiet Inspector pill unit */
     .ag-unit{
       display:inline-flex;align-items:center;justify-content:center;
       height:26px;padding:0 9px;border-radius:9999px;border:1px solid var(--ag-pill-border);
@@ -224,7 +224,7 @@
       background:var(--ag-toolbar-bg-active);
     }
 
-    /* 单元 1: 上下文小圆环按钮（按内容自适应，圆环+百分比共存） */
+    /* Unit 1: Context mini-ring button (content-adaptive, ring + percentage side by side) */
     #badge.ag-unit-ring{
       width:auto!important;
       min-width:26px;
@@ -258,7 +258,7 @@
       stroke:var(--ag-ring-danger);
     }
 
-    /* 单元 1B: 模型额度同心双环入口 */
+    /* Unit 1B: Model quota concentric dual-ring entry */
     #badge-quota.ag-unit-quota{
       width:auto;
       min-width:26px;
@@ -354,7 +354,7 @@
     :host([data-layout="minimal"]) #badge-quota,
     :host([data-layout="ring-only"]) #badge-quota{ display:none!important; }
 
-    /* 单元 2: 实时 Token 输出柱状图（替代 tok/s 文本，输出时实时柱形动画） */
+    /* Unit 2: Live token output bar chart (replaces tok/s text; animated bars while streaming) */
     #badge-speed{
       color:var(--ag-custom-speed,var(--ag-speed-default));
       min-width:58px;
@@ -414,7 +414,7 @@
       color:inherit;
     }
 
-    /* 单元 3: 累计 Token 用量 */
+    /* Unit 3: Cumulative token usage */
     #badge-tokens{
       color:var(--ag-custom-token-total,var(--ag-token-total-default));
       min-width:64px;
@@ -444,7 +444,7 @@
       color:inherit;
     }
 
-    /* 下拉选择框与选项在深浅主题下的高对比度保底 */
+    /* High-contrast fallback for select boxes and options in both dark and light themes */
     select {
       background-color: var(--ag-bg-input, rgba(255,255,255,0.08)) !important;
       color: var(--ag-text-primary, #ececef) !important;
@@ -470,7 +470,7 @@
       color: #18181b !important;
     }
 
-    /* 单元 4: 一键启动 CLI 按钮 */
+    /* Unit 4: One-click CLI launch button */
     #badge-cli{
       color:var(--ag-toolbar-fg);
       min-width:44px;
@@ -509,7 +509,7 @@
       transition: transform 0.15s ease;
     }
 
-    /* CLI 启动状态提示浮层 */
+    /* CLI launch status toast overlay */
     #cli-launch-toast{
       position:fixed;top:38px;right:140px;z-index:2147483650;
       max-width:360px;padding:7px 11px;border-radius:8px;
@@ -527,7 +527,7 @@
       color:#dc2626;
     }
 
-    /* 单元 5: 窄屏溢出菜单入口 */
+    /* Unit 5: Narrow-screen overflow menu entry */
     #badge-overflow{
       width:28px;height:28px;padding:0;display:none;
     }
@@ -535,7 +535,7 @@
       width:16px;height:16px;display:block;
     }
 
-    /* 单元 4.5: 深度上下文检查器顶栏入口 */
+    /* Unit 4.5: Deep context inspector topbar entry */
     #badge-inspector{
       color:var(--ag-toolbar-fg);
       padding:0 7px;gap:4px;
@@ -552,7 +552,7 @@
       display:none!important;
     }
 
-    /* 渐进式宽度收缩四阶段: wide -> compact -> minimal -> ring-only */
+    /* Four-stage progressive width shrinking: wide -> compact -> minimal -> ring-only */
     :host([data-layout="compact"]){
       gap:1px;
     }
@@ -577,7 +577,7 @@
       display:inline-flex!important;
     }
 
-    /* 上下文悬停信息气泡（严格还原参考图三层结构） */
+    /* Context hover info tooltip (strictly matches 3-tier reference structure) */
     #context-tooltip{
       position:fixed;top:0;left:0;z-index:2147483600;
       min-width:166px;max-width:268px;padding:9px 13px;
@@ -612,7 +612,7 @@
       margin-top:1px;
     }
 
-    /* 模型额度同心双环 & 速度 & Token 用量悬停提示气泡 */
+    /* Model quota concentric dual-ring, speed, and token usage hover tooltips */
     #quota-tooltip, #speed-tooltip, #tokens-tooltip{
       position:fixed;top:0;left:0;z-index:2147483600;
       min-width:210px;max-width:290px;padding:10px 13px;
@@ -671,7 +671,7 @@
       font-size:11px;line-height:1.35;color:var(--ag-text-muted);
     }
 
-    /* 窄屏溢出菜单浮层 */
+    /* Narrow-screen overflow menu popover */
     #overflow-menu{
       box-sizing:border-box;
       position:fixed;top:36px;right:12px;z-index:2147483500;
@@ -693,7 +693,7 @@
     .overflow-item-label{display:flex;align-items:center;gap:6px;font-weight:500}
     .overflow-item-val{font-weight:600;font-variant-numeric:tabular-nums;color:var(--ag-text-primary)}
 
-    /* 详情二级抽屉折叠交互 */
+    /* Details sub-drawer expand/collapse interaction */
     .tech-drawer{margin-top:10px;border-top:1px solid var(--ag-border-subtle);padding-top:9px}
     .drawer-trigger{
       width:100%;display:flex;justify-content:space-between;align-items:center;
@@ -706,7 +706,7 @@
     .drawer-arrow{font-size:11px;color:var(--ag-text-muted);font-weight:600}
     .drawer-body{margin-top:9px}
 
-    /* 自定义颜色设置网格与自定义颜色选取器面板 */
+    /* Custom color settings grid and custom color picker panel */
     .color-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:6px}
     .color-item{
       display:flex;align-items:center;justify-content:space-between;gap:6px;
@@ -729,7 +729,7 @@
     .color-reset-btn:hover{color:var(--ag-text-primary);background:var(--ag-btn-hover)}
     .color-reset-btn[data-mode="auto"]{opacity:0.55}
 
-    /* 自定义颜色选取器悬浮面板（参考样式：吸管 + 预设圆点 + SV主色区 + 色相条 + HEX/RGB/HSL三行） */
+    /* Custom color picker floating panel (reference layout: eyedropper + preset dots + SV area + hue bar + HEX/RGB/HSL rows) */
     #color-picker-popover{
       position:fixed;z-index:2147483640;width:304px;max-height:calc(100vh - 48px);overflow-y:auto;
       background:var(--ag-bg-panel);color:var(--ag-text-primary);
@@ -1005,7 +1005,7 @@
         margin-top:3px;
       }
     }
-        /* 所有详情与收起面板的丝滑物理展开动画 (匹配一级菜单质感) */
+        /* Smooth physical expand animation for all details and collapsible panels (matches tier-1 menu feel) */
     @keyframes agSmoothExpand{
       0%{
         opacity:0;
@@ -1026,7 +1026,7 @@
       transform-origin: top center;
     }
 
-    /* 适度调和、略亮半度但温润自然的药丸编辑按钮 */
+    /* Balanced, slightly brighter, warm pill edit button */
     .plan-edit-pill-btn{
       display:inline-flex;align-items:center;gap:5px;
       padding:4px 13px;border-radius:9999px;
@@ -1055,7 +1055,7 @@
       box-shadow:0 3px 10px rgba(124,58,237,0.3);
     }
 
-    /* Antigravity 原生定制下拉组件样式与动效 */
+    /* Antigravity native custom dropdown component styles and motion */
     .ag-dropdown-wrapper{
       position:relative;width:100%;box-sizing:border-box;min-width:0;
     }
@@ -1270,7 +1270,7 @@
     .cp-copy-btn:hover{color:var(--ag-text-primary);background:var(--ag-toolbar-bg-hover)}
     .cp-footer{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:7px;border-top:1px solid var(--ag-border-subtle)}
 
-    /* 弹出面板：上下文 (#panel) 与 Token 用量一览 (#panel-tokens) 独立面板 */
+    /* Popover panels: Context (#panel) and Token Usage Overview (#panel-tokens) standalone panels */
     .ag-panel{
       box-sizing:border-box;
       position:fixed;top:38px;left:auto;right:16px;z-index:2147483500;
@@ -1298,7 +1298,7 @@
     #panel-tokens.cost-compact-view{width:400px!important;max-width:calc(100vw - 24px)}
     .ag-panel[hidden]{display:block!important;opacity:0;transform:translateY(-6px);visibility:hidden;pointer-events:none}
 
-    /* 视图内平滑交叉淡入淡出（避免直接 display 硬切导致内容跳闪） */
+    /* Smooth crossfade within views (avoids hard display switch jumps) */
     @keyframes agFadeIn{
       from{opacity:0;transform:translateY(4px)}
       to{opacity:1;transform:none}
@@ -1306,7 +1306,7 @@
     .view-pane-fade{transition:opacity .15s ease,transform .15s ease;opacity:1;transform:none}
     .view-pane-fade.pane-hidden{opacity:0;transform:translateY(3px);display:none!important}
 
-    /* 顶栏控制条（sticky 固定，防止表单或详情展开时滚出视口） */
+    /* Topbar control strip (sticky to prevent scrolling out of viewport when forms or details expand) */
     .panel-header-bar{
       position:sticky;top:-14px;background:var(--ag-bg-panel);z-index:20;
       margin-top:-14px;padding-top:14px;
@@ -1327,7 +1327,7 @@
     .panel-icon-btn:hover{color:var(--ag-text-primary);background:var(--ag-toolbar-bg-hover)}
     #close,#close-tokens,#close-quota{font-size:16px;padding:2px 7px}
 
-    /* 模型额度看板面板 (#panel-quota) */
+    /* Model quota dashboard panel (#panel-quota) */
     .quota-refresh-feedback{
       display:inline-flex;align-items:center;
       font-size:10.5px;font-weight:500;color:#22c55e;
@@ -1508,7 +1508,7 @@
     :host([data-theme="light"]) .file-unknown{color:#b45309}
     #v{color:var(--ag-text-muted);font-size:10px;font-weight:400;margin-left:2px;flex-shrink:0}
 
-    /* 全局 Token 用量一览 */
+    /* Global token usage overview */
     #view-tokens{display:flex;flex-direction:column;gap:10px}
     .token-stat-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
     .t-card{background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:3px;transition:background-color .14s ease}
@@ -1602,7 +1602,7 @@
     #h-yearly-box{display:none;height:105px;width:100%;box-sizing:border-box;align-items:center;justify-content:center}
     .heat-yearly-svg{width:100%;height:105px;display:block;overflow:visible}
 
-    /* 累计总量 (A+C 推荐方案：摘要头 + 跨账号对数量级尺 + 比例时间带) */
+    /* Cumulative total (A+C recommended layout: summary header + cross-account log-scale ruler + proportional time strip) */
     #h-cum-box{display:none;width:100%;height:auto;min-height:0;overflow:visible;position:relative;box-sizing:border-box}
     .cum-root{display:flex;flex-direction:column;gap:8px;width:100%;padding:2px 2px 4px;box-sizing:border-box}
     .cum-summary-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px 12px}
@@ -1684,7 +1684,7 @@
     .cum-root.is-narrow .cum-ruler-tick[data-mid="true"] .cum-ruler-tick-lbl{display:none}
     @keyframes bubblePopIn{0%{transform:scale(0.6);opacity:0}100%{transform:scale(1);opacity:1}}
     .heat-yearly-bubble-group{transform-origin:center center;animation:bubblePopIn 0.22s cubic-bezier(0.16,1,0.3,1) both;cursor:pointer}
-    /* 上下文加长面板样式 */
+    /* Extended context panel styles */
     .unlock-panel-content{padding:4px 0 2px;display:flex;flex-direction:column;gap:8px}
     .unlock-status-row{display:flex;justify-content:space-between;align-items:flex-start;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);border-radius:6px;padding:8px 10px}
     .unlock-label{font-size:11px;font-weight:600;color:var(--ag-text-primary);margin-bottom:2px}
@@ -1836,7 +1836,7 @@
     .pop-det-val{font-size:11px;font-weight:500;color:var(--ag-pop-sub);font-variant-numeric:tabular-nums;white-space:nowrap}
     .pop-det-trans{font-size:9.5px;color:var(--ag-pop-muted);opacity:0.88;white-space:nowrap;line-height:1.2}
 
-    /* 上下文面板分页、模型卡片、状态条与速度对比图表 */
+    /* Context panel tabs, model cards, status bars, and speed comparison charts */
     .unlock-panel-content{padding:4px 0 2px;display:flex;flex-direction:column;gap:8px}
     .unlock-status-row{display:flex;justify-content:space-between;align-items:flex-start;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);border-radius:6px;padding:8px 10px}
     .unlock-label{font-size:11px;font-weight:600;color:var(--ag-text-primary);margin-bottom:2px}
@@ -1868,7 +1868,7 @@
     .unlock-link-toast{margin-top:4px;font-size:10px;padding:4px 8px;border-radius:4px;background:rgba(56,189,248,0.12);color:var(--ag-text-primary);border:1px solid rgba(56,189,248,0.3);line-height:1.4;animation:agSmoothExpand 0.15s ease}
     .unlock-adapter-note{font-size:9.5px;opacity:0.8}
 
-    /* 模型选择器（模型设置页内） & 分页栏 */
+    /* Model selector (inside model settings tab) & tab bar */
     .ctx-header-model-ctrl{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;flex-wrap:wrap}
     .ctx-models-toolbar{background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:7px 9px;margin-bottom:8px}
     .ctx-selector-role-lbl{font-size:10.5px;color:var(--ag-text-muted);white-space:nowrap;flex-shrink:0}
@@ -1913,7 +1913,7 @@
     .ctx-brand-feedback{font-size:11px;margin-top:6px;padding:5px 8px;border-radius:5px;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);color:var(--ag-text-primary)}
     .ctx-tab-pane[hidden]{display:none!important}
 
-    /* 当前会话紧凑卡片 */
+    /* Compact current session card */
     .ctx-compact-card{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:9px 11px;margin:8px 0 4px}
     .ctx-compact-info{min-width:0;display:flex;flex-direction:column;gap:3px}
     .ctx-compact-title{font-size:11.5px;font-weight:600;color:var(--ag-text-primary)}
@@ -1922,7 +1922,7 @@
     .ctx-compact-link-btn{background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);color:var(--ag-text-primary);border-radius:5px;padding:4px 9px;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;flex-shrink:0}
     .ctx-compact-link-btn:hover{background:var(--ag-btn-hover);border-color:var(--ag-btn-border-hover)}
 
-    /* 模型设置页：全局状态条 */
+    /* Model settings tab: global status bar */
     .ctx-status-bar{background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:8px 10px;margin-bottom:8px;display:flex;flex-direction:column;gap:6px}
     .ctx-status-bar-main{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
     .ctx-status-left{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
@@ -1935,7 +1935,7 @@
     .ctx-restart-confirm-actions{display:flex;gap:6px;align-items:center}
     .ctx-restart-feedback{font-size:10.5px;color:var(--ag-link,#38bdf8);line-height:1.35}
 
-    /* 模式选择器（统一设置 vs 按模型分别设置） */
+    /* Mode selector (Unified vs Per-Model) */
     .ctx-scope-selector-wrap{background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:5px;margin-bottom:8px}
     .ctx-scope-mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:6px}
     .ctx-mode-tab-btn{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);border-radius:6px;padding:7px 9px;cursor:pointer;color:var(--ag-text-secondary);transition:all .15s ease}
@@ -1944,7 +1944,7 @@
     .ctx-mode-tab-title{font-size:11px;font-weight:600;color:var(--ag-text-primary)}
     .ctx-mode-tab-desc{font-size:9.5px;color:var(--ag-text-muted);line-height:1.3}
 
-    /* 厂商分组模型列表 */
+    /* Vendor-grouped model list */
     .ctx-model-list{display:flex;flex-direction:column;gap:6px;max-height:175px;overflow-y:auto;overflow-anchor:none;background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:7px;margin-bottom:8px}
     .ctx-model-group{display:flex;flex-direction:column;gap:3px}
     .ctx-model-group-hdr{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--ag-text-muted);padding:2px 4px}
@@ -1959,7 +1959,7 @@
     .ctx-product-row-right{display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:10px;color:var(--ag-text-muted);font-variant-numeric:tabular-nums}
     .ctx-product-row-val.is-conflict{color:#f59e0b;font-weight:600}
 
-    /* 模型列表 / 下拉 / 卡片小额度圆环芯片（贴近原生 UI，保留状态文字与数值） */
+    /* Mini quota ring chip in model list / dropdown / card (matches native UI, preserves status text and value) */
     .ctx-model-quota-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 6px 1px 4px;border-radius:999px;background:rgba(127,127,127,0.10);border:1px solid rgba(127,127,127,0.18);font-size:10px;font-weight:600;line-height:14px;font-variant-numeric:tabular-nums;color:var(--ag-text-secondary);white-space:nowrap;flex-shrink:0;transition:border-color .18s ease,background-color .18s ease,color .18s ease}
     .ctx-model-quota-chip.is-dropdown{padding:1px 5px 1px 4px;font-size:9.5px}
     .ctx-model-quota-chip.is-card{padding:1.5px 7px 1.5px 5px;font-size:10px}
@@ -1990,7 +1990,7 @@
     .ctx-card-quota-slot{display:inline-flex;align-items:center;margin-left:auto;flex-shrink:0}
     .ctx-card-quota-slot[hidden]{display:none!important}
 
-    /* 模型大卡片 */
+    /* Model detail card */
     .ctx-detail-card{background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:10px 11px;margin-bottom:8px;display:flex;flex-direction:column;gap:8px}
     .ctx-conflict-banner{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.34);border-radius:6px;padding:7px 9px;display:flex;flex-direction:column;gap:5px}
     .ctx-conflict-banner[hidden]{display:none!important}
@@ -2007,7 +2007,7 @@
     .ctx-card-session-effort{font-weight:600;color:var(--ag-link,#38bdf8)}
     .ctx-card-session-effort[hidden]{display:none!important}
 
-    /* 精简主界面三项高亮网格 */
+    /* Compact main UI three-item highlight grid */
     .ctx-summary-highlight-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);border-radius:6px;padding:8px 10px}
     .ctx-summary-item{display:flex;flex-direction:column;gap:2px;min-width:0}
     .ctx-summary-item-length{grid-column:1 / -1;border-top:1px dashed var(--ag-border-subtle);padding-top:6px;margin-top:2px}
@@ -2042,7 +2042,7 @@
     .ctx-card-hints{display:flex;flex-direction:column;gap:4px;border-top:1px dashed var(--ag-border-subtle);padding-top:6px;font-size:10.5px;color:var(--ag-text-secondary);line-height:1.4}
     .ctx-card-hint-item{padding:4px 7px;background:var(--ag-bg-subcard);border-radius:4px;border-left:2px solid var(--ag-ring-warn,#f59e0b)}
 
-    /* 设置操作区 */
+    /* Settings action bar */
     .ctx-adjust-box{background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;gap:7px}
     .ctx-small-label{font-size:10.5px;color:var(--ag-text-muted)}
     .ctx-model-select{background:var(--ag-bg-card);color:var(--ag-text-primary);border:1px solid var(--ag-border-subcard);border-radius:4px;padding:3px 6px;font-size:10.5px;width:100%;outline:none}
@@ -2083,7 +2083,7 @@
     .ctx-plain-help{font-size:10px;color:var(--ag-text-muted);line-height:1.45;border-top:1px dashed var(--ag-border-subtle);padding-top:6px}
     .ctx-detail-ol{padding-left:16px}
 
-    /* 速度对比分页与 SVG 图表 */
+    /* Speed comparison tab and SVG charts */
     .ctx-speed-toolbar{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-bottom:8px}
     .ctx-segmented{display:inline-flex;align-items:center;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);border-radius:6px;padding:2px;gap:2px}
     .ctx-seg-btn{border:0;background:transparent;color:var(--ag-text-muted);font-size:10.5px;font-weight:500;padding:3px 7px;border-radius:4px;cursor:pointer;white-space:nowrap}
@@ -2102,7 +2102,7 @@
     .ctx-speed-empty[hidden],.ctx-svg-wrap[hidden]{display:none!important}
     .ctx-active-test-note{font-size:10.5px;color:var(--ag-text-muted);background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);border-radius:6px;padding:7px 9px;line-height:1.4}
 
-    /* 设置视图 */
+    /* Settings view */
     .ctx-settings-header{display:flex;align-items:center;gap:8px;padding-bottom:8px;margin-bottom:4px;border-bottom:1px solid var(--ag-border-subtle)}
     .ctx-back-btn{background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);color:var(--ag-text-primary);border-radius:5px;padding:3px 9px;font-size:11px;font-weight:500;cursor:pointer}
     .ctx-back-btn:hover{background:var(--ag-btn-hover)}
@@ -2120,7 +2120,7 @@
     .ctx-metric-label{flex-shrink:0}
     .ctx-metric-value,.ctx-metric-side{min-width:0;overflow-wrap:anywhere}
 
-    /* 结果框内联重启操作区与增强设置中心 */
+    /* Inline restart action bar inside result box and enhancement settings center */
     .unlock-result-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
     .unlock-result-actions[hidden],.ctx-enhance-confirm[hidden],.ctx-preset-preview-box[hidden]{display:none!important}
     .ctx-result-manual-note{font-size:10px;color:var(--ag-text-secondary);line-height:1.4;margin-top:4px;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);border-radius:5px;padding:5px 7px}
@@ -2174,7 +2174,7 @@
     }
     .model-usage-legend{max-height:220px;overflow-y:auto}
 
-    /* 缓存读取占比与输入输出细分条 */
+    /* Cache read ratio and input/output breakdown bar */
     .token-cache-breakdown{
       display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;
       background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;
@@ -2196,7 +2196,7 @@
     .ref-cost-fill-cache{background:#34d399}
     .ref-cost-fill-output{background:#a78bfa}
 
-    /* 最新调用卡片与当前会话请求时间线 */
+    /* Latest call card and current session request timeline */
     @keyframes agCallEnter{
       from{opacity:0;transform:translateY(5px)}
       to{opacity:1;transform:translateY(0)}
@@ -2310,7 +2310,7 @@
     .session-timeline-more-wrap{flex:0 0 auto;display:flex;justify-content:center;padding-top:2px}
     .session-timeline-more-wrap[hidden],.session-timeline-unlinked[hidden]{display:none!important}
 
-    /* ELV-91 生成体验面板联动样式（闪电颜色、副标签、E评分徽章与拆解网格） */
+    /* ELV-91 generation experience panel styles (bolt color, sub-label, E-score badge, and breakdown grid) */
     .speed-badge-group{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
     .speed-bolt-icon{display:inline-block;transition:color .18s ease}
     .speed-sub-label{
@@ -2350,7 +2350,7 @@
       #panel-tokens:not(.cost-compact-view){width:calc(100vw - 24px)}
     }
 
-    /* 多账号筛选条、ELV-57 配额对照、自动切号与 ELV-52 保活紧凑样式 */
+    /* Compact styles for multi-account filter bar, ELV-57 quota comparison, auto-switch, and ELV-52 keepalive */
     .token-account-bar{
       display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;
       padding:5px 8px;border-radius:7px;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);
@@ -2410,7 +2410,7 @@
       .auto-switch-grid{grid-template-columns:1fr}
     }
 
-    /* 订阅设置表单统一聚焦样式与自定义日期选择器（对齐 .ag-dropdown 设计语言） */
+    /* Unified focus styles and custom date picker for subscription settings form (aligned with .ag-dropdown design language) */
     .ag-sub-input{
       outline:none !important;
       transition:border-color 0.15s cubic-bezier(0.16,1,0.3,1),box-shadow 0.15s cubic-bezier(0.16,1,0.3,1),background 0.15s ease;
@@ -2540,7 +2540,7 @@
       outline:none;border-color:#a78bfa;box-shadow:0 0 0 2px rgba(139,92,246,0.28);
     }
 
-    /* 深度上下文与额度检查器 (Prototype B Quiet Inspector · 右侧滑出 + 动效 + 悬浮提示) */
+    /* Deep context & quota inspector (Prototype B Quiet Inspector · right slide-out + motion + hover tooltips) */
     .insp-entry-pill{display:inline-flex;align-items:center;gap:4px;}
     .ag-inspector-overlay{
       --insp-ease-out:cubic-bezier(0.23,1,0.32,1);

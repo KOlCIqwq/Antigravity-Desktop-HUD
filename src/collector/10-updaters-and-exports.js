@@ -1,9 +1,9 @@
 // ============================================================================
-// 一键启动 CLI 模式已抽离至 meter-cli-launcher.js，当前文件保持完全兼容导出
+// One-click CLI launcher mode has been extracted to meter-cli-launcher.js; this file preserves full backward-compatible exports
 // ============================================================================
 
 // ============================================================================
-// 在线更新模块 (GitHub Releases 探测、SHA-256 校验与零依赖热安装)
+// Online updater module (GitHub Releases probing, SHA-256 verification, and zero-dependency hot installation)
 // ============================================================================
 
 const OFFICIAL_REPO = 'elviscjn-cjn/antigravity-context-viewer';
@@ -19,7 +19,7 @@ let cachedUpdateCheckAt = 0;
 let isApplyingUpdate = false;
 
 /**
- * 校验下载重定向地址是否属于受信任的 GitHub / 官方资产 CDN（支持相对路径按 baseUrl 解析）
+ * Verify that a download redirect URL belongs to a trusted GitHub / official asset CDN (resolving relative paths against baseUrl)
  */
 function isAllowedDownloadRedirectUrl(targetUrlStr, baseUrlStr = null) {
   try {
@@ -38,7 +38,7 @@ function isAllowedDownloadRedirectUrl(targetUrlStr, baseUrlStr = null) {
 }
 
 /**
- * 严格校验资产下载地址是否归属于官方仓库发布路径，禁止路径穿越与外站跳转
+ * Strictly verify that an asset download URL belongs to the official repository release path; block path traversal and external redirects
  */
 function isOfficialAssetDownloadUrl(urlStr, filename, expectedTag = null) {
   if (!urlStr || typeof urlStr !== 'string') return false;
@@ -62,7 +62,7 @@ function isOfficialAssetDownloadUrl(urlStr, filename, expectedTag = null) {
 }
 
 /**
- * 区分 Node 与 Electron 运行环境，解析可用的 Node CLI 执行环境
+ * Distinguish between Node and Electron runtime environments and resolve an available Node CLI execution environment
  */
 function resolveNodeRuntime() {
   const isElectron = Boolean(process.versions && process.versions.electron);
@@ -84,7 +84,7 @@ function resolveNodeRuntime() {
   };
 }
 
-// 隧道建立与超时分类助手已统一收敛至 meter-proxy.js 导出并在本文件顶部引入复用。
+// Tunnel establishment and timeout classification helpers have been unified into meter-proxy.js exports and imported at the top of this file.
 
 
 function requestGithubUrl(rawUrl, options = {}) {
@@ -101,7 +101,7 @@ function requestGithubUrl(rawUrl, options = {}) {
       const phase = options.phase || (isApiHost ? 'release_query' : (options.streamTo ? 'download_asset' : 'request'));
       const hopTrace = Array.isArray(options._hopTrace) ? options._hopTrace : [];
 
-      // 认证信息仅允许发送至 api.github.com，绝不透传给网页、重定向目标或外部 CDN
+      // Credentials may only be sent to api.github.com; never forward them to web pages, redirect targets, or external CDNs
       const rawHeaders = Object.assign({}, options.headers || {});
       for (const hKey of Object.keys(rawHeaders)) {
         if (!isApiHost && hKey.toLowerCase() === 'authorization') {
@@ -203,7 +203,7 @@ function requestGithubUrl(rawUrl, options = {}) {
             ca: options.proxyCa || options.ca,
             rejectUnauthorized: options.proxyRejectUnauthorized
           });
-        // 代理已启用且未命中绕过规则时，隧道失败必须立即报错，绝不静默改走直连
+        // When proxy is enabled and bypass rules do not match, tunnel failure must fail immediately; never silently fall back to direct connection
         tunnelPromise.then(
           socket => doRequest(socket),
           err => {
@@ -244,7 +244,7 @@ function requestGithubUrl(rawUrl, options = {}) {
         }
         if (tunnelSocket) {
           const tls = require('tls');
-          // Node https.request 在 agent:false 时会忽略 reqOpts.createConnection，必须绑定带 createConnection 的专属 Agent
+          // Node https.request ignores reqOpts.createConnection when agent:false; must bind a dedicated Agent with createConnection
           const tunnelAgent = new https.Agent({ keepAlive: false });
           tunnelAgent.createConnection = () => {
             tunnelConsumed = true;
@@ -279,7 +279,7 @@ function requestGithubUrl(rawUrl, options = {}) {
               if (options.streamTo) { try { options.streamTo.destroy(); } catch { } }
               return settleReject(new Error(`下载重定向地址不受信任或协议不安全: ${rawLocation}`));
             }
-            // 剥离旧 headers 与 Authorization，按新目标域名重新决定是否附带凭据与代理绕过
+            // Strip old headers and Authorization, then re-evaluate credential attachment and proxy bypass based on the new target domain
             hopEntry.outcome = 'redirect';
             hopEntry.durationMs = Date.now() - startMs;
             try { hopEntry.redirectToHost = new URL(nextUrlStr).hostname; } catch {}
@@ -469,20 +469,20 @@ function getInstalledMeterVersion(options = {}) {
       if (fs.existsSync(p)) {
         const manifest = JSON.parse(fs.readFileSync(p, 'utf8'));
         if (manifest && manifest.meterVersion) {
-          // 严格核对清单中记录的安装目标是否与当前宿主目标一致
+          // Strictly verify that the install target recorded in the manifest matches the current host target
           if (targetAsar && manifest.installed) {
             try {
               const manifestTarget = path.resolve(manifest.installed).toLowerCase();
               const currentTarget = path.resolve(targetAsar).toLowerCase();
               if (manifestTarget !== currentTarget) {
-                continue; // 属于其他宿主路径的陈旧记录，严禁采信
+                continue; // Stale record belonging to another host path; never trust it
               }
             } catch {
               continue;
             }
           }
           if (manifest.installed && !fs.existsSync(manifest.installed)) {
-            continue; // 记录的物理文件已不存在，属于失效记录
+            continue; // Recorded physical file no longer exists; treat as an invalid record
           }
           return String(manifest.meterVersion);
         }
@@ -761,12 +761,12 @@ async function checkUpdateAsync(options = {}) {
   const now = Date.now();
   const cacheTtl = 6 * 3600 * 1000;
   if (!options.force && cachedUpdateCheck && (now - cachedUpdateCheckAt < cacheTtl)) {
-    // 若当前运行时版本与缓存中的运行时版本不一致（例如重启后运行版本对齐），缓存立即失效
+    // Immediately invalidate cache if current runtime version differs from the cached runtime version (e.g., runtime version aligned after restart)
     if (cachedUpdateCheck.currentVersion && cachedUpdateCheck.currentVersion !== runtimeVersion) {
       cachedUpdateCheck = null;
       cachedUpdateCheckAt = 0;
     } else if (cachedUpdateCheck.hasUpdate && cachedUpdateCheck.latestVersion) {
-      // 若当前磁盘或生效版本已追平或超越缓存的最新发布版本，该缓存必须即刻失效
+      // Immediately invalidate cache if current on-disk or effective version has caught up to or surpassed the cached latest release version
       if (compareVersions(effectiveCurrentVersion, cachedUpdateCheck.latestVersion) >= 0) {
         cachedUpdateCheck = null;
         cachedUpdateCheckAt = 0;
@@ -862,7 +862,7 @@ function safeCloseStream(stream) {
 }
 
 /**
- * 等待可写文件流完成刷盘与自动关闭，避免测试替身或自定义下载器提前返回导致读取竞态。
+ * Wait for the writable file stream to finish flushing and auto-closing, preventing read races caused by test doubles or custom downloaders returning early.
  * @param {import('fs').WriteStream} stream
  * @returns {Promise<void>}
  */
@@ -891,7 +891,7 @@ function waitWritableStreamClose(stream) {
     stream.once('close', onClose);
     stream.once('error', onError);
     if (stream.writableFinished && !stream.closed) {
-      // writableFinished 为 true 时 autoClose 会紧接着 emit close
+      // When writableFinished is true, autoClose will immediately emit close next
     }
   });
 }
@@ -930,8 +930,8 @@ function getLiveRuntimeDir(customStateDir = null) {
 }
 
 /**
- * 将运行外置 live-host 所需的纯 JS/配置运行时文件原子同步至 stateDir/live-runtime。
- * 保证在线更新清理临时目录或安装目录变动后，热加载后台进程仍能稳定运行至客户端重启。
+ * Atomically sync pure JS/config runtime files required to run the external live-host to stateDir/live-runtime.
+ * Ensures the hot-loaded background process continues running stably until client restart even if the online updater cleans up temp dirs or modifies the install dir.
  */
 function syncLiveRuntimeBundle(sourceDir, options = {}) {
   try {
@@ -1079,7 +1079,7 @@ async function applyUpdateAsync(options = {}) {
   let zipStream = null;
 
   try {
-    // 渲染层仅传版本标识，不传递外部资产 URL 或下载地址
+    // Renderer passes only the version identifier, never external asset URLs or download links
     const requestedVersion = typeof options === 'string'
       ? options
       : (options?.version || options?.release?.latestVersion || null);
@@ -1134,7 +1134,7 @@ async function applyUpdateAsync(options = {}) {
       };
     }
 
-    // 严格验证资产文件名是否符合规范（对齐官方打包脚本，同时向下兼容带 v 前缀）
+    // Strictly validate asset filename against the naming convention (aligned with official packaging script, while remaining backward-compatible with v-prefixed names)
     if (checksumAsset.name !== 'checksums.txt') {
       return { ok: false, error: '校验资产文件名异常，拒绝安装', htmlUrl: targetRelease.htmlUrl };
     }
@@ -1144,7 +1144,7 @@ async function applyUpdateAsync(options = {}) {
       return { ok: false, error: `安装包文件名 (${packageAsset.name}) 不符合官方命名规范 (${standardPackageName})，拒绝安装`, htmlUrl: targetRelease.htmlUrl };
     }
 
-    // 严格验证下载地址的官方仓库归属
+    // Strictly validate that the download URL belongs to the official repository
     if (!isOfficialAssetDownloadUrl(checksumAsset.browser_download_url, 'checksums.txt')) {
       return { ok: false, error: '校验文件下载地址不属于官方仓库，拒绝安装', htmlUrl: targetRelease.htmlUrl };
     }
@@ -1236,7 +1236,7 @@ async function applyUpdateAsync(options = {}) {
     const runtimeInfo = runtimeResolver();
     const subArgs = [...runtimeInfo.args, cliPath, 'install'];
 
-    // 检查是否存在已记录的自定义安装路径，确保更新子进程继续更新原目标
+    // Check if a custom install path is recorded so the updater subprocess continues updating the original target
     let recordedInstalledPath = options.targetPath || null;
     if (!recordedInstalledPath) {
       try {

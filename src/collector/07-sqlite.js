@@ -18,8 +18,8 @@ function buildSqliteUriWithQuery(dbPath, query) {
 }
 
 /**
- * 构建 SQLite 只读 immutable URI，兼容 Windows 盘符、UNC (\\wsl.localhost\...) 与 POSIX 路径。
- * 必须显式使用 file:////wsl.localhost/...?immutable=1，否则 9P 共享目录会报 database is locked。
+ * Build a read-only immutable SQLite URI compatible with Windows drive letters, UNC (\\wsl.localhost\...), and POSIX paths.
+ * Must explicitly use file:////wsl.localhost/...?immutable=1, otherwise 9P shared directories throw "database is locked".
  * @param {string} dbPath
  * @returns {string}
  */
@@ -98,7 +98,7 @@ function parsePbDurationSec(buf, start, end) {
 }
 
 /**
- * 从 gen_metadata.data 的 Protobuf 负载提取完整的步骤元数据（兼容模型 ID、展示标签、耗时、responseId 与父子关联）。
+ * Extract full step metadata from the gen_metadata.data Protobuf payload (supporting model ID, display label, latency, responseId, and parent/child relations).
  */
 function extractStepMetaFromGenMetadataBlob(rawData) {
   if (!rawData || !rawData.length) return [];
@@ -190,8 +190,8 @@ function extractStepMetaFromGenMetadataBlob(rawData) {
 }
 
 /**
- * 从会话数据库 gen_metadata.data 的 Protobuf 负载提取 stepIndex -> model/label 映射（保持兼容旧签名）。
- * 顶层字段 2 为 stepIndices（单个 varint 或 packed varint），字段 1 内的 19 为 rawModel、21 为展示标签。
+ * Extract stepIndex -> model/label mappings from the session database gen_metadata.data Protobuf payload (preserving legacy signature).
+ * Top-level field 2 is stepIndices (single varint or packed varint); within field 1, field 19 is rawModel and field 21 is display label.
  * @param {Buffer|Uint8Array} rawData
  * @returns {Array<{stepIndex: number, model: string}>}
  */
@@ -268,10 +268,10 @@ function getDbFileCacheSig(dbPath) {
 }
 
 /**
- * 严格只读且兼顾 WAL 一致性地读取会话 .db（不修改 .db / -wal / -shm，不以 immutable 绕过活跃锁读取撕裂页）：
- * - 当不存在非空 -wal 时，使用 ?immutable=1（零写零锁，且兼容 WSL UNC）；
- * - 当存在非空 -wal 且存在 -shm 时，使用 ?mode=ro（遵守 SQLite 锁读取一致 WAL 快照，不创建新伴生文件）；
- * - 当存在非空 -wal 但缺少 -shm 或只读受锁阻断时，安全降级返回空（保留未知，等待后续 checkpoint 后再回填）。
+ * Read session .db strictly read-only with WAL consistency (without modifying .db / -wal / -shm or bypassing active locks with immutable to read torn pages):
+ * - When no non-empty -wal exists, use ?immutable=1 (zero writes, zero locks, compatible with WSL UNC);
+ * - When a non-empty -wal and -shm both exist, use ?mode=ro (respect SQLite locks to read a consistent WAL snapshot without creating companion files);
+ * - When a non-empty -wal exists without -shm or read-only access is blocked by a lock, degrade safely to empty (keep unknown and backfill after a later checkpoint).
  */
 function loadConversationDbMeta(dbPath, selfCascadeId = '') {
   const emptyResult = {
@@ -338,7 +338,7 @@ function loadConversationDbMeta(dbPath, selfCascadeId = '') {
         }
       }
     } catch {
-      // 忽略缺失 gen_metadata 表或非预期 schema
+      // Ignore missing gen_metadata table or unexpected schema
     }
     try {
       const tmbRows = db.prepare('SELECT data FROM trajectory_metadata_blob LIMIT 2').all();
@@ -350,7 +350,7 @@ function loadConversationDbMeta(dbPath, selfCascadeId = '') {
         if (!subagentRole && tm.subagentRole) subagentRole = tm.subagentRole;
       }
     } catch {
-      // 旧库可能没有 trajectory_metadata_blob
+      // Legacy databases may lack trajectory_metadata_blob
     }
   } catch (err) {
     return {

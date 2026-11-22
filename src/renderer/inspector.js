@@ -1,5 +1,5 @@
   // =========================================================================
-  // Prototype B "Quiet Inspector" 右侧滑出统一检查器
+  // Prototype B "Quiet Inspector" right slide-out unified inspector
   // 1-to-1 Top Bar Routing · Concise Inset Cards · Animations · Hover Tooltips
   // =========================================================================
   const inspectorState = {

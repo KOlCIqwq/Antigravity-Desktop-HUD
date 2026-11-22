@@ -20,7 +20,7 @@
     if (s.includes('carbon') || s.includes('gemini-4-carbon') || s.includes('m670')) {
       return 'gemini-4-carbon';
     }
-    // 优先匹配 Argon / Orchestrator (Argon)，允许裸 gemini-pro-orchestrator 与已知变体但不吞并未知后缀
+    // Prefer Argon / Orchestrator (Argon); allow bare gemini-pro-orchestrator and known variants without swallowing unknown suffixes
     if (s.includes('argon') || s.includes('gemini-4-argon') || s.includes('m668') || /\bgemini-pro-orchestrator(?:-(?:argon|g1(?:-pro)?))?(?![a-z0-9-])/.test(s)) {
       return 'gemini-4-argon';
     }
@@ -122,7 +122,7 @@
     const amtCandidates = [rawQuota.remainingAmount, rawQuota.remaining_amount, rawQuota.remaining];
     for (const rawAmt of amtCandidates) {
       if (rawAmt === undefined || rawAmt === null || rawAmt === '') continue;
-      // Protobuf int64 在 protojson 中常序列化为十进制数字字符串
+      // Protobuf int64 is often serialized as a decimal numeric string in protojson
       const amt = typeof rawAmt === 'number'
         ? rawAmt
         : (typeof rawAmt === 'string' && /^-?\d+(\.\d+)?$/.test(rawAmt.trim()) ? Number(rawAmt.trim()) : NaN);
@@ -136,13 +136,13 @@
           const clamped = Math.max(0, Math.min(1, amt / total));
           return { fraction: clamped, hasValue: true, isExhausted: clamped === 0, source: 'amount_ratio' };
         }
-        // 正余量但缺少可靠的额度总量依据时，返回未知比例而非强行换算或落入零额度耗尽
+        // Return unknown fraction rather than forcing conversion or treating positive remaining amount without reliable total as exhausted
         return { fraction: null, hasValue: false, isExhausted: false, source: 'amount_without_total' };
       }
     }
-    // 仅在有明确协议依据的消息（exa.codeium_common_pb.QuotaInfo，普通 proto3 float + json omitempty）中，
-    // 若非不可用/已禁用且存在有效 resetTime、同时无其它冲突字段时，才将省略的 remainingFraction 按 0 耗尽处理；
-    // 对于 QuotaSummaryBucket（oneof remaining）或未指明契约的任意缺字段响应，证据不足一律视为未知。
+    // Only for messages with explicit protocol semantics (exa.codeium_common_pb.QuotaInfo, standard proto3 float + json omitempty),
+    // treat an omitted remainingFraction as 0 (exhausted) when not unavailable/disabled, a valid resetTime exists, and no conflicting fields are present;
+    // for QuotaSummaryBucket (oneof remaining) or any response without an explicit contract, treat missing fields as unknown due to insufficient evidence.
     const canInferProto3ScalarZero = options.schemaKind === 'codeium_quota_info' || options.allowProto3ZeroDefault === true;
     const isExplicitlyDisabled = Boolean(options.unavailable || rawQuota.disabled === true);
     const hasResetStr = parseStrictResetTimestamp(rawQuota.resetTime || rawQuota.reset_time) !== null;
@@ -228,14 +228,14 @@
   const DECORATIVE_BADGE_TAG_RE = /^(new|beta|preview|alpha|experimental|recommended|updated|hot|popular|最新|预览|預覽|推荐|推薦)$/i;
 
   /**
-   * 判断模型角标文本是否仅为装饰性标签，不能作为不可用或故障原因
+   * Check whether a model badge tag is purely decorative and cannot be treated as an unavailability or error reason
    */
   function isDecorativeBadgeTagTitle(tagTitle) {
     return typeof tagTitle === 'string' && DECORATIVE_BADGE_TAG_RE.test(tagTitle.trim());
   }
 
   /**
-   * 将账号套餐字段规范化为精确允许匹配的套餐标识集合，禁止宽泛子串误放行受限账号
+   * Normalize account plan fields into an exact-match set of allowed tier identifiers; disallow broad substring matching that could mis-allow restricted accounts
    */
   function buildAllowedTierMatchSet(planStatus) {
     if (!planStatus || typeof planStatus !== 'object') return null;
@@ -243,7 +243,7 @@
     const rawTierId = typeof planStatus.tierId === 'string' ? planStatus.tierId.trim().toLowerCase() : '';
     const rawTeamsTier = typeof planStatus.teamsTier === 'string' ? planStatus.teamsTier.trim().toLowerCase() : '';
 
-    // 套餐尚未识别且无任何具体层级标识时，不执行 allowedTiers 猜测拦截
+    // Do not perform heuristic allowedTiers blocking when the plan is unidentified and has no concrete tier identifier
     if (planStatus.status === 'unidentified' || ((!rawTierKey || rawTierKey === 'unknown') && !rawTierId && !rawTeamsTier)) {
       return null;
     }
@@ -270,7 +270,7 @@
       rawTeamsTier === 'teams_tier_free';
 
     if (isUltraTier) {
-      // Ultra 账号向上覆盖 Ultimate，并兼容上游可能回传或缺失 TEAMS_TIER_PRO 的情况；不放行未声明的企业专享档位
+      // Ultra accounts subsume Ultimate and tolerate upstream presence or omission of TEAMS_TIER_PRO; do not allow undeclared enterprise-exclusive tiers
       tokens.add('ultra');
       tokens.add('g1-ultra-tier');
       tokens.add('teams_tier_pro_ultimate');
@@ -335,7 +335,7 @@
       ? (tagDesc || (!isDecorativeBadgeTag ? tagTitle : null))
       : (hasConfigNotice ? config.notice.trim() : null);
 
-    // 清洗服务端或上游缓存中可能被装饰角标污染的 reason，确保真实故障原因不被 New 等角标覆盖
+    // Strip decorative badge tags (such as New) from server or upstream-cached reasons so the real failure reason is not masked
     const rawConfigReason = typeof config.unavailabilityReason === 'string' ? config.unavailabilityReason.trim() : '';
     const cleanConfigReason = (rawConfigReason && !isDecorativeBadgeTagTitle(rawConfigReason)) ? rawConfigReason : '';
     const nonDecorativeTagTitle = (!isDecorativeBadgeTag && tagTitle) ? tagTitle : null;
@@ -364,7 +364,7 @@
     const targetLower = rawStr.trim().toLowerCase();
     const targetStripped = targetLower.replace(/^model_/, '');
 
-    // 1. 优先精准匹配 modelId / modelOrAlias.model / model / label（兼容 MODEL_ 前缀）
+    // 1. Prefer exact match on modelId / modelOrAlias.model / model / label (supporting MODEL_ prefix)
     let matched = cascadeModelConfigs.find(c => {
       if (!c || typeof c !== 'object') return false;
       const cands = [c.modelId, c.modelOrAlias?.model, c.model, c.label]
@@ -373,7 +373,7 @@
       return cands.some(v => v === targetLower || v.replace(/^model_/, '') === targetStripped);
     });
 
-    // 2. 匹配同一产品组 / 配额池
+    // 2. Match within the same product group / quota pool
     if (!matched && poolKey !== 'unknown') {
       matched = cascadeModelConfigs.find(c => {
         const cPool = getModelPoolKey(c);
@@ -431,12 +431,12 @@
       };
     }
 
-    // 脱敏清洗诊断摘要（去除非必要的完整 URL 和堆栈冗余）
+    // Sanitize diagnostic summary (strip unnecessary full URLs and redundant stack traces)
     let diagnostic = error.replace(/https?:\/\/[^\s"']+/g, '<API>').trim();
     if (diagnostic.length > 120) diagnostic = diagnostic.slice(0, 117) + '...';
 
-    // 1. 上下文容量超限 (Context Overflow)
-    // 明确排除 Go context.DeadlineExceeded 网络超时
+    // 1. Context Overflow
+    // Explicitly exclude Go context.DeadlineExceeded network timeouts
     const isDeadlineTimeout = /context deadline exceeded|deadline exceeded|stream idle timeout/i.test(error);
     const overflowMatch = !isDeadlineTimeout && error.match(/input token count exceeds|context\s*(?:window|length|tokens?|limit|size|capacity)?.{0,35}(?:exceed|too long)|maximum context length|prompt exceeds maximum context length|max_tokens exceeded/i);
     if (overflowMatch) {
@@ -454,7 +454,7 @@
       };
     }
 
-    // 2. 模型或额度池耗尽 (Quota Exhausted)
+    // 2. Quota Exhausted
     const explicitQuotaMatch = /(?:quota\s*(?:exceeded|reached|limit|exhausted)|out\s+of\s+quota|exhausted.*(?:capacity|quota)|resource_exhausted.*(?:quota|capacity|billing)|free\s+tier\s+quota|daily\s+quota|weekly\s+quota)/i.test(error);
     const quotaZeroEvidence = Boolean(modelQuota && typeof modelQuota.remainingFraction === 'number' && modelQuota.remainingFraction <= 0.0001);
 
@@ -475,7 +475,7 @@
       };
     }
 
-    // 3. 请求频率限制 (Rate Limited)
+    // 3. Rate Limited
     const rateLimitMatch = /(?:rate\s*limit|too\s*many\s*requests|\b429\b|RateLimitError|RESOURCE_EXHAUSTED.*rate)/i.test(error);
     if (rateLimitMatch) {
       const retryMatch = error.match(/(?:retry\s+in|retry-after|wait)\s*[:=]?\s*([\d.]+)\s*(?:s|sec|seconds)?/i);
@@ -493,7 +493,7 @@
       };
     }
 
-    // 4. 用户主动取消或请求中断 (Canceled)
+    // 4. Canceled
     const canceledMatch = /(?:context canceled by user|user cancelled|request was aborted|AbortError)/i.test(error);
     if (canceledMatch) {
       return {
@@ -509,7 +509,7 @@
       };
     }
 
-    // 5. 身份认证与权限错误 (Auth / Permission)
+    // 5. Auth / Permission Error
     const authMatch = /(?:UNAUTHENTICATED|PERMISSION_DENIED|\b401\b|\b403\b|invalid api key|credentials expired|permission denied)/i.test(error);
     if (authMatch) {
       return {
@@ -525,7 +525,7 @@
       };
     }
 
-    // 6. 服务暂不可用 (Service Unavailable)
+    // 6. Service Unavailable
     const unavailMatch = /(?:UNAVAILABLE|\b503\b|\b502\b|\b504\b|server overloaded|high demand|Bad Gateway|Service Unavailable)/i.test(error);
     if (unavailMatch) {
       return {
@@ -541,7 +541,7 @@
       };
     }
 
-    // 7. 明确网络连接失败或超时 (Network Error)
+    // 7. Network Error or Timeout
     const netMatch = /(?:\bEOF\b|idle timeout|deadline exceeded|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|socket hang up|fetch failed|Failed to fetch|NetworkError)/i.test(error);
     if (netMatch) {
       let cleanNet = '连接失败或超时';
@@ -564,7 +564,7 @@
       };
     }
 
-    // 8. 兜底：原因待确认 (Unknown)
+    // 8. Fallback: Unknown
     return {
       kind: 'unknown',
       title: '原因待确认',
@@ -587,7 +587,7 @@
     const modelRaw = String(m.model || m.modelOrAlias?.model || m.responseModel || m.modelDisplayName || options.currentModel || '').trim();
     const modelId = resolveStableModelId(m, options.cascadeModelConfigs || []) || resolveStableModelId(options.currentModel, options.cascadeModelConfigs || []) || null;
 
-    // 执行结构化错误分类
+    // Run structured error classification
     const classification = error ? classifyRequestError(error, {
       currentModel: model,
       cascadeModelConfigs: options.cascadeModelConfigs || [],
@@ -603,7 +603,7 @@
     const thinking = number(usage?.thinkingOutputTokens), responseTokens = number(usage?.responseOutputTokens);
     const hasInput = (input || 0) + (cached || 0) > 0;
 
-    // 解耦维度：错误发生时不强制归零已有上下文用量
+    // Decoupled dimensions: do not force-zero existing context usage when an error occurs
     const prevContext = options.previousValidContext || null;
     let actual = hasInput && !error ? (input || 0) + (cached || 0) + (output || 0) : null;
     if (actual === null && prevContext && prevContext.actual != null && !exceeded) {
@@ -614,7 +614,7 @@
     const estimate = number(context?.estimatedTokensUsed) || prevContext?.estimate || null;
     const budget = number(context?.maxContextTokens) || prevContext?.budget || null;
 
-    // 计算生成耗时与输出速度 (Tokens Per Second)
+    // Compute generation duration and output speed (Tokens Per Second)
     const ttft = parseDurationSec(m.timeToFirstToken);
     const streamingSec = parseDurationSec(m.streamingDuration);
     const duration = (ttft !== null && streamingSec !== null) ? (ttft + streamingSec) : (ttft ?? streamingSec ?? null);
@@ -735,7 +735,7 @@
     const media = new Map();
     let userMessages = 0, assistantMessages = 0, latestStepError = null, lastUserAt = -1, lastAssistantAt = -1;
     const skip = new Set(['metadata', 'userConfig', 'lastUserConfig', 'userAgentSpec', 'activeUserState', 'thinkingSignature', 'thumbnail', 'inlineData', 'media', 'modelUsage', 'tokenUsage', 'mendelExperimentIds']);
-    // 直接按与原 content()+measure() 等价的逻辑流式累计 chars/bytes/cjk，避免分配巨型中间拼接字符串
+    // Accumulate chars/bytes/cjk in streaming fashion equivalent to content()+measure(), avoiding huge intermediate concatenated strings
     const toolAcc = { chars: 0, bytes: 0, cjk: 0 };
     function accumulateContent(value, acc) {
       if (typeof value === 'string') { measure(value, acc); return; }
@@ -839,12 +839,11 @@
     return { groups, total, media: [...media.values()], steps: steps.length, userMessages, assistantMessages, currentError };
   }
 
-  // 官方 Developer API Standard 公开费率表 (USD / 百万 Token)
-  // 官方 Developer API Standard 公开费率表 (USD / 百万 Token)
-  // 来源: https://ai.google.dev/gemini-api/docs/pricing , https://aistudio.google.com/docs/pricing
-  //       https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-hydrogen/
-  //       https://platform.claude.com/docs/en/about-claude/pricing
-  // 核对日期: 2026-11-16 (合入 PR #9，保留并校验 Gemini 4 Argon / Carbon / Hydrogen 与 Claude 5.5 官方公开费率)
+  // Official Developer API Standard public pricing table (USD per 1M tokens)
+  // Sources: https://ai.google.dev/gemini-api/docs/pricing , https://aistudio.google.com/docs/pricing
+  //          https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-hydrogen/
+  //          https://platform.claude.com/docs/en/about-claude/pricing
+  // Verified: 2026-11-16 (merged PR #9, preserving and verifying Gemini 4 Argon / Carbon / Hydrogen and Claude 5.5 public rates)
   const GEMINI_PRICING_TABLE = {
     'gemini-3.8-flash': [
       {

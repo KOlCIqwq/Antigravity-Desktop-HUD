@@ -1,5 +1,5 @@
   // =========================================================================
-  // 模块 3: 面板、气泡与溢出菜单交互
+  // Module 3: Panels, tooltips, and overflow menu interactions
   // =========================================================================
   function withStepError(value, metadata) {
     const error = state.scan?.session?.currentError;
@@ -19,7 +19,7 @@
       network: failure.network,
       serviceLimit: failure.serviceLimit || value?.serviceLimit || null,
       status: failure.status,
-      // 解耦：保留已有有效上下文数据，不归零、不清空
+      // Decoupled: preserve existing valid context data without resetting or clearing
       used: value?.used ?? failure?.used ?? null,
       actual: failure.exceeded ? null : (value?.actual ?? null),
       estimate: value?.estimate ?? failure?.estimate ?? null,
@@ -186,14 +186,14 @@
     syncHostStackingElevation(willOpen);
   }
 
-  // 外观调色按钮进入设置视图并直接展开颜色自定义抽屉
+  // Appearance palette button opens the settings view and directly expands the color customization drawer
   el('btn-panel-palette')?.addEventListener('click', () => {
     openContextSettings?.({ openColors: true });
   });
   el('btn-panel-tokens-palette')?.addEventListener('click', () => toggleTokenColorsDrawer());
 
   // =========================================================================
-  // 统一定制下拉组件控制器 (国家 / 订阅地区 / 币种 / 增强 Select)
+  // Unified custom dropdown controller (Country / Subscription Region / Currency / Enhanced Select)
   // =========================================================================
   const COUNTRY_OPTIONS = [
     { value: '未知', label: '🌐 未设置 / 自动', labelTw: '🌐 未設定 / 自動', labelEn: '🌐 Auto / Unset', code: 'AUTO', aliases: ['自动', '未知', 'none', 'auto'] },
@@ -270,7 +270,7 @@
     node.className = parts.join(' ');
   }
 
-  // 纯同步 UI 控件回填防护守卫（仅在纯同步赋值代码块内开启，严禁跨越 await）
+  // Synchronous UI control backfill guard (enable only within purely synchronous assignment blocks; never cross await)
   let isHydratingUiControls = false;
   function runWithUiHydration(fn) {
     const prev = isHydratingUiControls;
@@ -282,10 +282,10 @@
     }
   }
 
-  // 兼容老调用声明
+  // Legacy call signature compatibility
   let isRestoringSettings = false;
 
-  // 异步时序保护：用户主动修改序列号与恢复请求版本号
+  // Async ordering guard: user-initiated edit sequence number and restore request version
   let userActionSeq = 0;
   let restoreRequestSeq = 0;
 
@@ -326,7 +326,7 @@
       ? (Number(targetNum) % 1 === 0 ? String(Number(targetNum)) : Number(targetNum).toFixed(2))
       : '';
 
-    // 轻量模拟环境安全兼容
+    // Safe compatibility for lightweight mock environments
     if (typeof priceValEl.querySelector !== 'function') {
       priceValEl.textContent = `${targetSymbol}${formattedFinalNum}${targetCycle}`;
       if (priceCnyEl) priceCnyEl.textContent = targetCnyText;
@@ -361,7 +361,7 @@
     const startSymbol = lastBadgePriceState?.symbol || targetSymbol;
     const endSymbol = targetSymbol;
 
-    // 确保内部 DOM 结构完整
+    // Ensure internal DOM structure is intact
     let symbolEl = priceValEl.querySelector?.('.badge-symbol-anim');
     let numEl = priceValEl.querySelector?.('.badge-num-anim');
     let cycleEl = priceValEl.querySelector?.('.badge-cycle-anim');
@@ -375,7 +375,7 @@
 
     if (cycleEl) cycleEl.textContent = targetCycle;
 
-    // 1. 货币符号消散再切换动画 (Symbol Dissolve & Crossfade)
+    // 1. Currency symbol dissolve and crossfade animation
     if (startSymbol !== endSymbol && symbolEl && symbolEl.classList) {
       symbolEl.classList.remove('is-entering');
       symbolEl.classList.add('is-dissolving');
@@ -394,7 +394,7 @@
       symbolEl.textContent = endSymbol;
     }
 
-    // 2. CNY 折合平滑渐变
+    // 2. Smooth CNY equivalent fade
     if (priceCnyEl && priceCnyEl.textContent !== targetCnyText) {
       try {
         priceCnyEl.style.transition = 'opacity 0.18s ease';
@@ -409,7 +409,7 @@
       }
     }
 
-    // 3. 数字滚动/递减递增动画 (Rolling Numeric Count Tween)
+    // 3. Rolling numeric count tween animation
     if (startNum !== endNum && numEl) {
       if (badgeEl && badgeEl.classList) badgeEl.classList.add('is-animating');
 
@@ -463,7 +463,7 @@
           : t('plan.summary.unknown');
       sumTxt.textContent = `${tierDisplay} · ${modeTxt} · ${t('plan.summary.justNow')}`;
     }
-    // 实时联动更新黄框位置的订阅费与汇率胶囊（Ultra 等无公开统一定价时不回退 Pro $19.99）
+    // Sync and update the subscription fee & exchange rate pill in the yellow-box slot (do not fall back to Pro $19.99 for Ultra or tiers without public unified pricing)
     const curSymbol = ps.currencySymbol || '$';
     let targetSymbol = '$';
     let targetNum = null;
@@ -503,7 +503,7 @@
     const detAcc = el('p-det-account');
     if (detAcc) detAcc.textContent = ps.email || t('plan.account.unknown');
 
-    // 守卫：若当前不在 Token 统计视图或详情处于收起状态，严禁异步返回时撑开详情面板
+    // Guard: if not currently in Token Stats view or details are collapsed, never expand the details panel when async response arrives
     const cardEl = el('plan-detail-card');
     if (cardEl && (activeTokenView !== 'tokens' || !planDetailExpanded)) {
       cardEl.style.display = 'none';
@@ -544,7 +544,7 @@
       tagCur.textContent = ps.currencySource === 'custom' ? t('plan.tag.custom') : '';
     }
 
-    // 使用纯同步回填守卫同步更新详情面板内的下拉控件值
+    // Use synchronous backfill guard to update dropdown values inside the details panel
     runWithUiHydration(() => {
       if (directCountrySel) {
         if (countryText !== '未知' && directCountrySel.options) {
@@ -563,7 +563,7 @@
       }
     });
 
-    // 刷新国家、订阅地区与币种直接选择器标签与选中高亮
+    // Refresh labels and selected highlights for Country, Subscription Region, and Currency direct selectors
     if (typeof refreshDirectCountryDisplay === 'function') {
       refreshDirectCountryDisplay(countryText);
     }
@@ -688,7 +688,7 @@
     return String(n);
   }
 
-  // 数据源切换（全部 / 桌面 / CLI）与分账号账本筛选
+  // Data source switching (All / Desktop / CLI) and per-account ledger filtering
   let activeTokenSource = 'all';
   let activeTokenAccountFilter = 'all'; // 'all' | 'unattributed' | 'acct_xxx'
   const accountsUiState = {
@@ -740,10 +740,10 @@
   el('src-tab-desktop')?.addEventListener('click', () => switchTokenSource('desktop'));
   el('src-tab-cli')?.addEventListener('click', () => switchTokenSource('cli'));
 
-  // 视图切换（Token 统计 / API 等值估算）
+  // View switching (Token Stats / API Equivalent Estimate)
   let activeTokenView = 'tokens';
 
-  // 费用面板紧凑摘要与展开详情切换
+  // Toggle between compact summary and expanded details in the cost panel
   let costDetailsExpanded = false;
   function toggleCostDetails(expand) {
     if (expand === undefined) costDetailsExpanded = !costDetailsExpanded;
@@ -783,7 +783,7 @@
   });
   toggleCostDetails(false);
 
-  // 按模型 Token 统计状态与视图渲染
+  // Per-model token stats state and view rendering
   let modelUsagePeriodDays = 7;
   let modelUsageOffsetDays = 0;
   let modelUsageGroupBy = 'model';
@@ -895,7 +895,7 @@
       unattributedLabel: t('modelsUsage.unattributed')
     });
 
-    // 长尾折叠：图例大于 6 项时保留 Top 5 独立颜色 + 第 6 项「其他模型/档位」
+    // Long-tail folding: when legend has > 6 items, keep Top 5 distinct colors + 6th item "Other models/tiers"
     let effectiveLegend = Array.isArray(summary.legend) ? summary.legend.slice() : [];
     const foldedKeys = new Set();
     if (effectiveLegend.length > 6) {
@@ -1037,7 +1037,7 @@
         col.setAttribute('data-date', day.date);
         col.setAttribute('data-tokens', String(day.total || 0));
 
-        // 折叠长尾段并保持真实 Top 顺序（column-reverse 下 index 0 在零基线底部）
+        // Fold long-tail segments while preserving true Top order (under column-reverse, index 0 sits at the zero baseline)
         const segList = [];
         let otherSegTok = 0;
         (day.segments || []).forEach(seg => {
@@ -1057,7 +1057,7 @@
             pct: day.total > 0 ? (otherSegTok / day.total) * 100 : 0
           });
         }
-        // 点击锁定单系列时将该系列移至 0 基线底部（数组首位）
+        // When locking a single series on click, move it to the zero baseline (first element in array)
         if (modelUsageLockedKey) {
           const lockIdx = segList.findIndex(s => s.key === modelUsageLockedKey);
           if (lockIdx > 0) {
@@ -1213,7 +1213,7 @@
 
   function switchTokenView(v) {
     activeTokenView = v;
-    // 离开 Token 统计视图时关闭订阅详情与表单
+    // Close subscription details and form when leaving Token Stats view
     setPlanDetailExpanded(false, { skipReposition: true });
     if (typeof hidePopover === 'function') hidePopover();
 
@@ -1317,7 +1317,7 @@
   });
 
   // =========================================================================
-  // 一键启动 CLI 模式（当前项目目录绑定 + 中文/空格路径兼容 + 错误提示）
+  // One-click CLI launch (binds current project directory + CJK/space path support + error toast)
   // =========================================================================
   let cliLaunchBusy = false;
   let cliToastTimer = null;
@@ -1496,7 +1496,7 @@
   el('close-quota')?.addEventListener('click', () => showPanel('none'));
   el('badge-quota')?.addEventListener('contextmenu', e => { e.preventDefault(); cycleTheme(); });
 
-  // 上下文圆环与模型额度双环悬停/键盘聚焦气泡（面板打开时不通过悬停误切，必须通过显式左键点击切换）
+  // Context ring & model quota dual-ring hover/focus tooltips (do not switch on hover when panel is open; require explicit left-click)
   el('badge').addEventListener('mouseenter', () => {
     if (!isAnyPanelOpen()) {
       showContextTooltip();
@@ -1549,7 +1549,7 @@
   el('badge-speed')?.addEventListener('contextmenu', e => { e.preventDefault(); cycleTheme(); });
 
   // =========================================================================
-  // 模块 3: 上下文面板分页、设置视图、模型产品偏好、重启验证与速度对比
+  // Module 3: Context panel tabs, settings view, model product preferences, restart verification, and speed comparison
   // =========================================================================
   const btnTabSession = el('tab-ctx-session');
   const btnTabModels = el('tab-ctx-models');
@@ -1650,7 +1650,7 @@
   const btnResetModelCtx = el('btn-reset-model-ctx');
   const ctxResetNoticeEl = el('ctx-reset-notice');
 
-  // 双模式控件与精简展示元素
+  // Dual-mode controls and compact display elements
   const btnModeUnified = el('btn-ctx-mode-unified');
   const btnModePerModel = el('btn-ctx-mode-per-model');
   const ctxModelsToolbar = el('ctx-models-toolbar');
@@ -1809,7 +1809,7 @@
   }
 
   /**
-   * 合并模型产品名与档位后缀，严格剥离尾部重复档位括号，避免出现 "(High) (High)"。
+   * Merge model product name and tier suffix, stripping trailing duplicate tier parentheses to avoid "(High) (High)".
    */
   function formatProductDisplayWithEffort(rawLabel, explicitEffort = null) {
     const text = String(rawLabel || '').trim();

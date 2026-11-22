@@ -49,10 +49,10 @@
   }
 
   /**
-   * 统一选择主限额窗口（被 buildModelQuotaSnapshot 与顶栏徽章渲染共用）：
-   * 1) 优先 remainingFraction 最小的更紧缩窗口；
-   * 2) 相同剩余量按 5h -> 24h/daily -> 7d/weekly -> 其他 确定性排序；
-   * 3) 返回 { primaryBucket, selectionReason } 供悬浮详情解释选择依据。
+   * Unified primary quota window selector (shared by buildModelQuotaSnapshot and top-bar badge rendering):
+   * 1) Prefer the tighter window with the smallest remainingFraction;
+   * 2) Break ties deterministically by 5h -> 24h/daily -> 7d/weekly -> other;
+   * 3) Return { primaryBucket, selectionReason } for hover tooltip explanation.
    */
   function selectPrimaryQuotaBucket(buckets = []) {
     const list = Array.isArray(buckets) ? buckets.filter(Boolean) : [];
@@ -79,9 +79,9 @@
   }
 
   /**
-   * 聚合账号下各共享额度池、产品档位与当前会话模型额度状态（纯函数）
-   * 严格区分：available / low / exhausted / no_permission / stale / error / unknown
-   * 绝不把网络错误判为耗尽，绝不把 Notice 标记判为权限不足，绝不伪造重置倒计时或强行推算剩余 Token。
+   * Aggregate shared quota pools, product tiers, and current session model quota status for the account (pure function).
+   * Strictly distinguishes: available / low / exhausted / no_permission / stale / error / unknown.
+   * Never treats network errors as exhausted, never treats Notice tags as no_permission, and never fabricates reset countdowns or forces remaining-token estimates.
    */
   function buildModelQuotaSnapshot(input = {}) {
     const nowMs = Number.isFinite(Number(input.nowMs)) ? Number(input.nowMs) : Date.now();
@@ -103,7 +103,7 @@
     const lastError = fetchMeta.error ? String(fetchMeta.error) : null;
     const errorKind = fetchMeta.errorKind || (lastError ? 'network' : null);
 
-    // 1. 解析 RetrieveUserQuotaSummary 中的权威共享池组
+    // 1. Parse authoritative shared pool groups from RetrieveUserQuotaSummary
     const parsedGroups = rawGroups.map((g, idx) => {
       const desc = typeof g.description === 'string' ? g.description.trim() : '';
       const explicitModelNames = Array.isArray(g.modelIds) && g.modelIds.length
@@ -158,7 +158,7 @@
       };
     });
 
-    // 2. 将 clientModelConfigs 按产品折叠多挡位（如 Low/Medium/High/XHigh）
+    // 2. Collapse clientModelConfigs by product across effort tiers (e.g. Low/Medium/High/XHigh)
     const productMap = new Map();
     const fallbackGroupNames = {
       shared_gemini_main: 'Gemini 4 Hydrogen / Gemini 3.8 Flash',
@@ -178,7 +178,7 @@
       const poolKey = getModelPoolKey(cfg);
       const defaultSharedKey = getSharedQuotaGroupKey(cfg);
 
-      // 查找匹配的 quotaSummary group
+      // Find matching quotaSummary group
       const cfgNorm = normalizeModelLookupName(gInfo.productLabel || cfg.label || cfg.modelId);
       const matchedSummaryGroup = parsedGroups.find(pg => {
         if (pg.normalizedExplicitNames.some(en => en && (cfgNorm === en || cfgNorm.includes(en) || en.includes(cfgNorm)))) {
@@ -225,7 +225,7 @@
       if (aliasId && !prod.aliases.includes(aliasId)) prod.aliases.push(aliasId);
       prod.rawConfigs.push(cfg);
 
-      // 产品级权限状态：如果任意非推荐挡位没权限且全组都无可用挡位才算无权限；若新增可用挡位则解锁
+      // Product-level permission status: mark no_permission only if a non-recommended tier lacks permission and the whole group has no available tiers; unlock if an available tier is added
       if (!avail.noPermission) {
         prod._hasAvailableMember = true;
       } else if (!prod.unavailabilityReason && avail.reason) {
@@ -236,7 +236,7 @@
         prod.noticeText = avail.noticeText;
       }
 
-      // 合并 config.quotaInfo
+      // Merge config.quotaInfo
       if (parsedFrac.hasValue) {
         if (prod.remainingFraction === null || parsedFrac.fraction < prod.remainingFraction) {
           prod.remainingFraction = parsedFrac.fraction;
@@ -259,14 +259,14 @@
       prod.noPermission = !prod._hasAvailableMember;
       delete prod._hasAvailableMember;
       if (prod.noPermission) {
-        // 无权限模型不将其缺失的 quota 标为耗尽
+        // Do not mark missing quota on a no-permission model as exhausted
         prod.remainingFraction = null;
         prod.isExhausted = false;
       }
       prod.percentText = prod.noPermission ? '无权限' : formatQuotaPercentText(prod.remainingFraction);
     }
 
-    // 3. 构建最终共享池卡片列表
+    // 3. Build final shared pool card list
     const poolMap = new Map();
     const ensurePool = (sKey, titleHint, summaryGroup = null) => {
       let pool = poolMap.get(sKey);
@@ -323,7 +323,7 @@
       });
     }
 
-    // 若 summary group 有 explicitModelNames 但还没对应 config 落入，补充可读模型名占位以便展示
+    // If the summary group has explicitModelNames without matching configs, add readable placeholder model names for display
     for (const pg of parsedGroups) {
       const pool = poolMap.get(pg.sharedKey);
       if (pool && pool.models.length === 0 && pg.explicitModelNames.length > 0) {
@@ -347,7 +347,7 @@
       }
     }
 
-    // 为无 buckets 的 pool 从组内可用模型 config.quotaInfo 合成主窗口；并为有 buckets 的计算主限制
+    // Synthesize primary window from available model config.quotaInfo for pools without buckets; compute primary limit for pools with buckets
     for (const pool of poolMap.values()) {
       const allNoPerm = pool.models.length > 0 && pool.models.every(m => m.noPermission);
       if (allNoPerm) {
@@ -360,7 +360,7 @@
       }
 
       if (pool.buckets.length === 0) {
-        // 仅由 clientModelConfigs 合成主导窗口
+        // Synthesize dominant window solely from clientModelConfigs
         const validFracs = [];
         let earliestReset = null;
         for (const prod of productMap.values()) {
@@ -391,7 +391,7 @@
         }
       }
 
-      // 从 buckets 中统一选出主窗口（更紧缩优先 + 5h/7d 确定性平局规则）
+      // Select primary window uniformly from buckets (tightest first + deterministic 5h/7d tie-breaker)
       const { primaryBucket: pb, selectionReason } = selectPrimaryQuotaBucket(pool.buckets);
       pool.selectionReason = selectionReason;
       if (pb && pb.remainingFraction !== null && pb.remainingFraction !== undefined) {
@@ -428,7 +428,7 @@
         pool.percentText = '未知';
       }
 
-      // 优化池标题：若池内模型名比 group description 更清晰则补充
+      // Refine pool title: supplement with model name if clearer than group description
       if (!summaryTitleLooksDescriptive(pool.title) && pool.models.length > 0) {
         pool.title = pool.models.map(m => m.productLabel).slice(0, 3).join(' / ');
       }
@@ -440,7 +440,7 @@
 
     const pools = Array.from(poolMap.values());
 
-    // 4. 匹配当前会话模型与浏览查看池（浏览不修改 currentModel）
+    // 4. Match current session model and browsed pool (browsing does not mutate currentModel)
     const findMatchedForTarget = (targetInput) => {
       if (!targetInput) return { pool: null, model: null };
       const targetStr = typeof targetInput === 'object'
@@ -474,7 +474,7 @@
       ? (pools.find(p => p.poolKey === input.browsePoolKey) || currentMatch.pool || pools[0] || null)
       : (currentMatch.pool || pools[0] || null);
 
-    // 5. 数据新鲜度与刷新状态机
+    // 5. Data freshness and refresh state machine
     const hasAnyPoolData = pools.length > 0 && pools.some(p => p.remainingFraction !== null || p.noPermission);
     const anyResetPassed = pools.some(p => p.isResetPassed && p.remainingFraction === 0);
     const ageMs = fetchedAtMs !== null ? Math.max(0, nowMs - fetchedAtMs) : null;
@@ -491,7 +491,7 @@
       syncState = 'unknown';
     }
 
-    // 6. 顶栏与概览裁决（严禁仅凭网络错误显示耗尽；不只是颜色表达）
+    // 6. Top-bar and overview adjudication (never show exhausted solely due to network errors; not just color-coded)
     let activeStatus = 'unknown';
     let activeStatusLabel = '未知';
     let badgeText = '未知';
@@ -540,7 +540,7 @@
       activeStatusLabel = '数据过期';
       badgeText = '过期';
     } else if (hasAnyPoolData && !input.currentModel) {
-      // 未确定当前模型但已获取池数据：取所有可用池中最紧缩的一个或明确标注未识别当前模型
+      // Current model unidentified but pool data fetched: pick tightest available pool or explicitly note unidentified current model
       activeStatus = 'unknown';
       activeStatusLabel = '未匹配当前模型';
       badgeText = '未知';
@@ -586,7 +586,7 @@
   }
 
   /**
-   * 严格校验外部链接是否属于官方白名单（官方仓库或作者署名主页）
+   * Strictly verify whether an external URL belongs to the official allowlist (official repo or author homepage)
    */
   function formatApproxTokensShort(n) {
     const num = Number(n);
@@ -677,13 +677,13 @@
       resetObservedAt = nowMs;
     }
 
-    // 仅在存在重置时间且处于当前合理窗口内时推算理论周期起点；注意它本身不能证明本地覆盖全周期
+    // Infer theoretical cycle start only when resetTime exists and falls within a reasonable current window; note this alone does not prove full local cycle coverage
     let cycleStartMs = null;
     if (resetAtMs !== null && windowMs !== null && !bucket?.isResetPassed && (resetAtMs - nowMs) <= windowMs + 300000) {
       cycleStartMs = resetAtMs - windowMs;
     }
 
-    // 周期起点覆盖证明：要么本周期在本机监控期间发生过重置/满额基线观察，要么采集器明确给出了不晚于周期起点的历史记录时间
+    // Cycle-start coverage proof: either a reset/full-quota baseline was observed locally during this cycle, or the collector explicitly recorded history no later than cycle start
     const prevObservedFullSameCycle = Boolean(
       !isNewCycle &&
       prev?.observedCycleFromStart === true &&
@@ -738,7 +738,7 @@
     const mixedPoolModels = poolModelsSet.size > 1;
     const poolModelsUsed = Array.from(poolModelsSet);
 
-    // 校验历史校准合法性与有效期（缺失 calibratedAt 视作旧版未知时效缓存并过期失效）
+    // Validate historical calibration validity and TTL (missing calibratedAt is treated as legacy unknown-age cache and expired)
     const rawPriorTotal = (prev && Number.isFinite(Number(prev.calibratedTotalTokens)) && Number(prev.calibratedTotalTokens) >= 15000 && Number(prev.calibratedTotalTokens) <= 1e11)
       ? Number(prev.calibratedTotalTokens)
       : null;
@@ -753,7 +753,7 @@
     let sampleCount = calibratedTotal !== null ? (Number(prev?.sampleCount) || 0) : 0;
     let calSource = calibratedTotal !== null ? (prev?.source || null) : null;
 
-    // 独立的先验历史基线：仅当先验校准是在另一个周期或通过增量/完整历史建立且未过期、未被污染时，才可用于异常降级参考
+    // Independent prior historical baseline: usable as a degraded fallback reference only if established in another cycle or via incremental/full history, unexpired, and uncontaminated
     const priorIndependentTotal = (calibratedTotal !== null && !prev?.externalDivergenceInCycle && calSource !== 'cycle')
       ? calibratedTotal
       : null;
@@ -795,7 +795,7 @@
       ? prev.anchorCycleTokens
       : cycleTokensUsed;
 
-    // 同一周期内若余量微幅上浮（小于重置阈值），刷新高水位锚点
+    // If remaining quota ticks up slightly within the same cycle (below reset threshold), refresh the high-water anchor
     if (frac > anchorFraction && (frac - anchorFraction) < 0.04 && !resetShiftedForward) {
       anchorFraction = frac;
       anchorCycleTokens = cycleTokensUsed;
@@ -805,7 +805,7 @@
     const deltaTok = cycleTokensUsed - anchorCycleTokens;
 
     if (!divergenceInCycle) {
-      // 方法 A（优先）：同周期相邻有效采样差值校准。要求余量降幅 >= 2% 且本机增耗 >= 2,000 Tokens
+      // Method A (preferred): delta calibration across adjacent valid samples in the same cycle; requires quota drop >= 2% and local consumption delta >= 2,000 tokens
       if (deltaF >= 0.02 && deltaTok >= 2000) {
         const sampleTotal = deltaTok / deltaF;
         const outOfBounds = !Number.isFinite(sampleTotal) || sampleTotal < 15000 || sampleTotal > 1e11;
@@ -832,13 +832,13 @@
           invalidationReason = tooHighVsPrior ? 'calibration_ratio_drift' : (tooLowVsPrior ? 'external_divergence' : 'delta_out_of_bounds');
         }
       } else if ((deltaF >= 0.03 && deltaTok < 500) || (deltaF >= 0.15 && deltaTok < 2000)) {
-        // 同周期可观测窗口内额度明显下降 (>=3% 且几乎零本地消耗，或 >=15% 且增量不足 2,000) -> 外部/他端消耗或漏采
+        // Noticeable quota drop within an observable same-cycle window (>=3% with near-zero local consumption, or >=15% with delta < 2,000) -> external/other-device usage or missed sampling
         externalDivergence = true;
         divergenceInCycle = true;
         invalidationReason = 'external_divergence';
       }
 
-      // 方法 B（次选）：必须同时具备周期起点覆盖证明 + 本机足量消耗 (>=3,000) + 无异常偏移，绝不单凭 resetAt - windowMs 强行反推
+      // Method B (fallback): requires cycle-start coverage proof + sufficient local consumption (>=3,000) + no anomalous skew; never back-calculate solely from resetAt - windowMs
       const usedFrac = 1 - frac;
       if (usedFrac >= 0.03 && !externalDivergence && !divergenceInCycle) {
         if (hasFullCycleCoverage) {
@@ -867,8 +867,8 @@
             invalidationReason = 'external_divergence';
           }
         } else if (usedFrac >= 0.15 && cycleTokensUsed < 500) {
-          // 首次或缺失周期起点覆盖时若周期已消耗 >= 15% 但本地几乎零消耗：本轮标识为缺样本/他端消耗拦截，
-          // 但仅在已存在前置对比且确认同区段发生外耗时才锁死后续增量法 A（防止首次半周期接入后永久阻塞增量校准）
+          // On first sample or missing cycle-start coverage, if cycle consumption >= 15% with near-zero local usage: mark this round as missing-sample / external-usage blocked,
+          // but only lock out subsequent incremental Method A if a prior comparison confirmed external usage in the same segment (avoids permanent lockout after mid-cycle onboarding)
           externalDivergence = true;
           invalidationReason = 'external_divergence';
         }
@@ -877,7 +877,7 @@
       externalDivergence = true;
     }
 
-    // 状态判定严格互斥：耗尽 -> 外部消耗/异常降级 -> 校准过期 -> 正常本周期/历史参考 -> 等待或覆盖不足
+    // Strictly mutually exclusive states: exhausted -> external/degraded -> expired -> normal current-cycle/history reference -> awaiting or insufficient coverage
     const isCurrentCycleCalibrated = Boolean(
       calibratedTotal !== null &&
       !divergenceInCycle &&
@@ -900,7 +900,7 @@
       isReliable = true;
       finalReason = null;
     } else if (hasAnyInvalidation) {
-      // 检测到外部消耗或异常失真：绝不按正常有效校准展示；无独立有效历史基线时强制置空，存在时降级标为不可靠参考
+      // External usage or anomalous skew detected: never display as normal valid calibration; clear if no independent valid history baseline exists, or downgrade to unreliable reference
       if (priorIndependentTotal !== null && !isCalibrationExpired) {
         estRemainingTokens = Math.max(0, Math.round(priorIndependentTotal * frac));
         estTotalTokensOut = Math.round(priorIndependentTotal);
@@ -941,7 +941,7 @@
         finalReason = null;
         invalidationReason = null;
       } else {
-        // 跨周期沿用未过期的历史校准且当期暂无新样本：保留数值但标记为非实时可靠的历史参考
+        // Carrying over unexpired historical calibration across cycles with no new samples yet: keep value but mark as non-realtime historical reference
         estSource = 'cached';
         estBasis = 'cached_calibration';
         isReliable = false;

@@ -93,9 +93,9 @@
     const probeText = `${effectiveLabel} ${rawStr} ${resolvedStable || ''}`.trim();
     const probeLower = probeText.toLowerCase();
 
-    // Orchestrator 与 Worker 子模型专用归属：
-    // - gemini-flash-worker-agy / M669 / Gemini 4 Hydrogen (Orchestrator) 归入 Gemini 4 Hydrogen，档位标为 (Orchestrator)
-    // - Orchestrator (Carbon / Argon) 归入独立 Orchestrator 模型家族，按档位展开 Carbon / Argon
+    // Dedicated mapping for Orchestrator and Worker sub-models:
+    // - gemini-flash-worker-agy / M669 / Gemini 4 Hydrogen (Orchestrator) -> Gemini 4 Hydrogen, effort (Orchestrator)
+    // - Orchestrator (Carbon / Argon) -> dedicated Orchestrator model family, expanded by tier Carbon / Argon
     if (
       probeLower.includes('worker-agy') ||
       /\bm669\b/.test(probeLower) ||
@@ -236,7 +236,7 @@
     const baseColor = resolveBaseModelColor(baseKey, rankIdx, options);
 
     if (!effortPart) return baseColor;
-    // 同模型家族内按档位或特殊角色（如 Orchestrator）做同色系明度阶梯区分
+    // Differentiate effort tiers or special roles (e.g. Orchestrator) within the same model family using lightness steps of the same hue
     const shadeOffsetByEffort = isLight
       ? { xhigh: -0.24, extrahigh: -0.24, max: -0.24, orchestrator: -0.14, carbon: -0.14, high: -0.05, medium: 0.16, argon: 0.16, low: 0.34, minimal: 0.42 }
       : { xhigh: -0.22, extrahigh: -0.22, max: -0.22, orchestrator: -0.12, carbon: -0.14, high: -0.04, medium: 0.18, argon: 0.16, low: 0.34, minimal: 0.42 };
@@ -245,7 +245,7 @@
   }
 
   /**
-   * 按指定天窗 (7d/30d) 与分组粒度汇总按日按模型 Token 分布与图例占比
+   * Aggregate per-day, per-model token distribution and legend shares for a given day window (7d/30d) and grouping granularity
    */
   function summarizeModelUsageWindow(dailyModelMap = {}, options = {}) {
     const periodDays = Number(options.periodDays) === 30 ? 30 : 7;
@@ -329,7 +329,7 @@
       dayBucketsList.push({ date: dStr, total: dayTotal, grouped: dayGrouped });
     }
 
-    // 排序：已标明模型按窗口总用量降序，未标明模型固定置底
+    // Sort: identified models by descending window total; unidentified models pinned at the bottom
     const sortedWin = Array.from(windowTotalsByGroup.values()).sort((a, b) => {
       if (a.key === UNATTRIBUTED_MODEL_KEY && b.key !== UNATTRIBUTED_MODEL_KEY) return 1;
       if (b.key === UNATTRIBUTED_MODEL_KEY && a.key !== UNATTRIBUTED_MODEL_KEY) return -1;
@@ -434,11 +434,11 @@
   }
 
   /**
-   * 规范化单次调用或汇总对象的输入、缓存读取与输出 Token。
-   * 已通过本地 transcript.jsonl、chatModel.usage 与 pricing_ledger 实测验证：
-   * Antigravity 默认将 inputTokens/input_tokens 记为非缓存新增输入，cacheReadTokens/cache_read_tokens 记为缓存读取，
-   * 二者为互斥分项，规范总输入 = uncachedInput + cacheRead。
-   * 仅当显式标记 inputIncludesCache === true 时才从中扣除 cacheRead，避免重复计数。
+   * Normalize input, cache-read, and output tokens for a single call or summary object.
+   * Verified against local transcript.jsonl, chatModel.usage, and pricing_ledger:
+   * Antigravity records inputTokens/input_tokens as uncached new input and cacheReadTokens/cache_read_tokens as cache read;
+   * they are mutually exclusive, so normalized totalInput = uncachedInput + cacheRead.
+   * Subtract cacheRead only when inputIncludesCache === true is explicitly set, avoiding double counting.
    */
   function normalizeCallInputCacheTokens(rec) {
     if (!rec || typeof rec !== 'object') {
@@ -461,7 +461,7 @@
     const hasCap = !explicitMissing && rawCap !== undefined && rawCap !== null && Number.isFinite(Number(rawCap));
     const hasOut = rawOut !== undefined && rawOut !== null && Number.isFinite(Number(rawOut));
 
-    // 当记录完全没有任何输入或缓存字段时，绝不将缺失伪造为 0
+    // Never fabricate 0 for missing values when a record has no input or cache fields at all
     if (!hasInp && !hasCap) {
       const rawTot = rec.totalTokens ?? rec.total;
       const totVal = rawTot !== undefined && rawTot !== null && Number.isFinite(Number(rawTot)) ? Math.max(0, Number(rawTot)) : null;
@@ -475,7 +475,7 @@
       };
     }
 
-    // Proto3 JSON 序列化会省略 0 值字段：当至少一个输入/缓存字段存在时，另一被省略字段按 0 处理
+    // Proto3 JSON omits zero-valued fields: when at least one input/cache field is present, treat the omitted counterpart as 0
     const inpVal = hasInp ? Math.max(0, Number(rawInp)) : 0;
     const capVal = hasCap ? Math.max(0, Number(rawCap)) : 0;
     const outVal = hasOut ? Math.max(0, Number(rawOut)) : 0;
@@ -507,8 +507,8 @@
   }
 
   /**
-   * 计算单条调用或桶记录的缓存读取占比。
-   * 缺失字段与分母为 0 时 cacheReadRatio / cacheReadPct 均返回 null，不伪造 0%。
+   * Compute cache-read ratio for a single call or bucket record.
+   * Returns null for both cacheReadRatio and cacheReadPct when fields are missing or denominator is 0 (never fabricates 0%).
    */
   function computeCacheReadStats(rec) {
     const norm = normalizeCallInputCacheTokens(rec);
@@ -539,9 +539,9 @@
   }
 
   /**
-   * 按可靠分母总量加权汇总缓存读取占比与请求缓存命中占比。
-   * - cacheReadPct：sum(cacheRead) / sum(totalInput)，绝不直接平均每条百分比。
-   * - requestHitPct：命中缓存请求数 / 可评估请求数（仅当分母 > 0 时有效）。
+   * Aggregate weighted cache-read percentage and request cache-hit rate over reliable denominators.
+   * - cacheReadPct: sum(cacheRead) / sum(totalInput), never average per-call percentages directly.
+   * - requestHitPct: cache-hit requests / evaluable requests (valid only when denominator > 0).
    */
   function summarizeCacheReadStats(records = []) {
     const list = Array.isArray(records) ? records : [];
@@ -600,9 +600,9 @@
   }
 
   /**
-   * 按日汇总 Map 计算缓存读取占比（复用同一加权口径，历史无细分记录不计入分母）
+   * Compute cache-read percentage from daily summary Map (reusing the same weighted formula; legacy records without breakdown are excluded from denominator)
    * @param {Object} dailyMap
-   * @param {string} [datePrefix=''] - 日期前缀过滤（如 '2026-11'）
+   * @param {string} [datePrefix=''] - Date prefix filter (e.g. '2026-11')
    */
   function summarizeDailyMapCacheStats(dailyMap = {}, datePrefix = '') {
     if (!dailyMap || typeof dailyMap !== 'object') {
@@ -626,7 +626,7 @@
   }
 
   /**
-   * 规范化单条会话调用记录（供最新调用卡片、轮次时间线与缓存统计统一复用）。
+   * Normalize a single session call record (shared by latest-call card, turn timeline, and cache stats).
    */
   function normalizeSessionCallRecord(raw, options = {}) {
     if (!raw || typeof raw !== 'object') return null;
@@ -798,13 +798,13 @@
   }
 
   /**
-   * 清洗对话轮次标题预览中的 XML/系统包装标签（如 <USER_REQUEST>、<ADDITIONAL_METADATA>），
-   * 仅作用于前端展示预览，不改动任何底层原始记录。
+   * Strip XML/system wrapper tags (e.g. <USER_REQUEST>, <ADDITIONAL_METADATA>) from turn title previews;
+   * applies only to frontend display previews without mutating any underlying raw records.
    */
   function sanitizeTurnPreviewText(rawText, maxLen = 120) {
     if (rawText == null) return '';
     let text = String(rawText);
-    // 兼容 HTML 转义形式并移除成对及截断残留的系统元信息块
+    // Also handle HTML-escaped forms and remove paired or truncated residual system metadata blocks
     text = text.replace(/&lt;\s*(\/?)\s*(USER_REQUEST|ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|EPHEMERAL_MESSAGE|SYSTEM_INSTRUCTION)\b[^&]*&gt;/gi, '<$1$2>');
     text = text.replace(/<\s*(ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|EPHEMERAL_MESSAGE|SYSTEM_INSTRUCTION)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, ' ');
     text = text.replace(/<\s*(ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|EPHEMERAL_MESSAGE|SYSTEM_INSTRUCTION)\b[^>]*>[\s\S]*$/gi, ' ');
@@ -815,14 +815,14 @@
   }
 
   /**
-   * 按用户轮次（Turn）将当前会话主代理调用与可验证的子代理调用分组汇总。
-   * 绝不凭时间接近猜测父子归属：未关联到父步骤的子代理调用放入独立 unlinkedSubagentCalls 列表。
+   * Group main-agent calls and verifiable subagent calls in the current session by user turn.
+   * Never guess parent-child ownership by timestamp proximity: unlinked subagent calls are placed in a separate unlinkedSubagentCalls list.
    */
   function groupSessionCallsByTurns(turnMarkers = [], calls = [], options = {}) {
     const cascadeId = options.cascadeId || null;
     const cascadeConfigs = Array.isArray(options.cascadeModelConfigs) ? options.cascadeModelConfigs : [];
 
-    // 1. 归一化全部调用并按 callId 去重（保留信息更完整的一条）
+    // 1. Normalize all calls and deduplicate by callId (keep the more complete record)
     const dedupMap = new Map();
     for (const raw of (Array.isArray(calls) ? calls : [])) {
       const norm = normalizeSessionCallRecord(raw, { cascadeId, cascadeModelConfigs: cascadeConfigs, userStatus: options.userStatus });
@@ -869,7 +869,7 @@
       return sa - sb;
     });
 
-    // 2. 构建规范化用户轮次边界（按 stepIndex 升序）
+    // 2. Build normalized user turn boundaries (sorted ascending by stepIndex)
     const sortedTurns = (Array.isArray(turnMarkers) ? turnMarkers : [])
       .filter(t => t && (Number.isInteger(Number(t.stepIndex)) || t.timestamp || t.created_at))
       .map((t, idx) => {
@@ -935,7 +935,7 @@
         continue;
       }
 
-      // 主代理调用：严格优先按 stepIndex 定位轮次
+      // Main-agent calls: strictly prefer locating turn by stepIndex
       let targetIdx = -1;
       if (c.stepIndex !== null && (!cascadeId || !c.cascadeId || String(c.cascadeId).toLowerCase() === String(cascadeId).toLowerCase())) {
         targetIdx = findTurnByStep(c.stepIndex);

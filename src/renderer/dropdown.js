@@ -39,7 +39,7 @@
     const renderedItemMap = new Map();
 
     /**
-     * 清空挂起的菜单内定位定时器，避免关闭或重建后继续触发滚动。
+     * Clear pending in-menu scroll timers so scrolling doesn't fire after closing or rebuilding.
      */
     function clearListScrollTimer() {
       if (listScrollTimer) {
@@ -49,7 +49,7 @@
     }
 
     /**
-     * 仅在不触发祖先滚动容器跳转的前提下聚焦元素。
+     * Focus an element without triggering ancestor scroll containers to jump.
      */
     function focusNoScroll(targetEl) {
       if (!targetEl || typeof targetEl.focus !== 'function') return;
@@ -61,7 +61,7 @@
     }
 
     /**
-     * 仅调整下拉菜单自身 scrollTop，严禁调用会穿透滚动外层面板的 scrollIntoView。
+     * Adjust only the dropdown menu's own scrollTop; never call scrollIntoView, which can scroll outer panels.
      */
     function scrollChildNearestInContainer(scrollBox, childEl) {
       if (!scrollBox || !childEl) return;
@@ -95,7 +95,7 @@
       const selectableCount = allItemsForSearch.filter(x => x && !x.isGroupHeader).length;
       const showSearch = cfg.searchable === true || (cfg.searchable !== false && selectableCount > 6);
 
-      // 1. 搜索框（超过 6 项或显式启用时展示，短列表直接展示整洁选项）
+      // 1. Search box (shown when > 6 items or explicitly enabled; short lists show clean options directly)
       let searchInput = null;
       if (showSearch) {
         const searchWrap = document.createElement('div');
@@ -114,7 +114,7 @@
         });
       }
 
-      // 2. 列表容器
+      // 2. List container
       const listContainer = document.createElement('div');
       listContainer.className = 'ag-dropdown-list-container';
       menu.appendChild(listContainer);
@@ -153,7 +153,7 @@
           return t1.includes(searchKey) || t2.includes(searchKey) || t3.includes(searchKey) || aliases.some(a => a.includes(searchKey));
         };
 
-        // 过滤可选项；组标题仅在后续存在命中项时显示且不可选
+        // Filter options; group headers are only shown when subsequent items match and are non-selectable
         const renderEntries = [];
         let pendingHeader = null;
         visibleItems = [];
@@ -254,7 +254,7 @@
           listContainer.appendChild(itemEl);
         });
 
-        // 仅在主动展开菜单时，将当前选中项滚动到下拉列表自身可视区域（绝不触发祖先面板滚动）
+        // Scroll the selected item into the dropdown's own viewport only when actively opening (never trigger ancestor panel scrolling)
         if (listOpts.scrollSelected === true) {
           listScrollTimer = setTimeout(() => {
             listScrollTimer = null;
@@ -284,7 +284,7 @@
 
       renderList(kw, menuOpts);
 
-      // 键盘导航
+      // Keyboard navigation
       const keyHandler = (e) => {
         if (!hasClass(wrap, 'is-open')) return;
         if (e.key === 'ArrowDown') {
@@ -323,7 +323,7 @@
       }
     }
 
-    // 立即预渲染一次菜单内容，避免初次点击或测试环境遇到空白（不触发滚动）
+    // Pre-render menu content immediately to avoid blank state on first click or in test environments (without scrolling)
     renderMenu('', { scrollSelected: false });
 
     function toggleOpen() {
@@ -332,7 +332,7 @@
         closeAllDropdowns(wrap);
         clearInputFocusTimer();
 
-        // 上下空间与左右边缘防裁剪自适应展开方向
+        // Adaptive expansion direction to prevent vertical and horizontal edge clipping
         try {
           const rect = trigger.getBoundingClientRect?.() || { bottom: 0, top: 0, left: 0, right: 0, width: 0 };
           const spaceBelow = (typeof window !== 'undefined' ? (window.innerHeight || 800) : 800) - rect.bottom;
@@ -414,7 +414,7 @@
         label.title = label.textContent || '';
         const nextAria = cfg.getAriaLabel ? cfg.getAriaLabel() : (linkedSelect?.getAttribute?.('aria-label') || cfg.ariaLabel);
         if (nextAria) trigger.setAttribute?.('aria-label', nextAria);
-        // 关闭态仅在选项结构/选中项变化时静态同步菜单（scrollSelected: false 绝不触发滚动），避免轮询无意义重建或抢滚动
+        // When closed, statically sync menu only if option structure or selection changed (scrollSelected: false never triggers scroll), avoiding pointless polling rebuilds or scroll hijacking
         if (!hasClass(wrap, 'is-open')) {
           const langTag = typeof currentPanelLanguage !== 'undefined' ? currentPanelLanguage : 'zh-CN';
           const optsSig = `${langTag}|${val || ''}|` + opts.map(o => `${o.value || ''}:${o.label || ''}:${o.displayRight || ''}:${o.badgeText || ''}:${o.isGroupHeader ? 1 : 0}`).join(';');
@@ -462,7 +462,7 @@
     return opt.label;
   }
 
-  // 刷新国家直接选择器显示
+  // Refresh direct country selector display
   function refreshDirectCountryDisplay(currentCountryVal) {
     const label = el('direct-country-label');
     if (!label) return;
@@ -479,7 +479,7 @@
     }
   }
 
-  // 刷新订阅地区直接选择器显示
+  // Refresh direct subscription region selector display
   function refreshDirectRegionDisplay(currentRegionText) {
     const directLabel = el('direct-region-label');
     if (!directLabel) return;
@@ -499,7 +499,7 @@
     }
   }
 
-  // 刷新币种直接选择器显示
+  // Refresh direct currency selector display
   function refreshDirectCurrencyDisplay(currentCurrencyVal) {
     const label = el('direct-currency-label');
     if (!label) return;
@@ -517,7 +517,7 @@
   }
 
   // =========================================================================
-  // 插件栏设置持久化（币种、国家、订阅地区）与详情面板生命周期管理
+  // Plugin bar settings persistence (currency, country, subscription region) and detail panel lifecycle management
   // =========================================================================
   let planDetailExpanded = false;
   let lastSavedCustomPlan = null;
@@ -550,7 +550,7 @@
     } catch {}
   }
 
-  // 统一控制 AI Pro 详情面板展开与收回（手动按钮、切换预估费用、关闭面板共用同一套清理逻辑）
+  // Unified control for expanding and collapsing the AI Pro detail panel (manual button, toggling estimated cost, and closing share the same cleanup logic)
   function setPlanDetailExpanded(expanded, options = {}) {
     const next = Boolean(expanded) && activeTokenView === 'tokens';
     planDetailExpanded = next;
@@ -628,7 +628,7 @@
     const email = payload.email || ps.email || 'default';
     const customObj = payload.customPlan || null;
 
-    // 保存前检查通信桥接，缺失时返回失败
+    // Check communication bridge before saving; return failure if missing
     const hasIpc = typeof window !== 'undefined' && typeof window.contextMeterAPI?.saveSettings === 'function';
     const hasLive = typeof window !== 'undefined' && Boolean(window.__AGContextMeterLive?.port);
     if (!hasIpc && !hasLive) {
@@ -662,7 +662,7 @@
         res = await resp.json().catch(() => null);
       }
 
-      // 请求序列检查：若在此保存期间发生更新的操作，丢弃旧回包，避免旧响应乱序覆盖
+      // Request sequence check: discard stale responses if a newer operation occurred during save to prevent out-of-order overwrites
       if (thisSeq < currentSaveSeq) {
         return { ok: true, superseded: true };
       }
@@ -673,7 +673,7 @@
         return { ok: false, error: errMsg };
       }
 
-      // 宿主落盘确认成功后，才更新内存已保存缓存与全局快照
+      // Update in-memory saved cache and global snapshot only after host confirms disk persistence
       if (payload.clearPlan) {
         lastSavedCustomPlan = null;
         if (typeof window !== 'undefined') {
@@ -738,7 +738,7 @@
     renderActiveCostEstimateView();
   }
 
-  // 明确切换价格模式：'preset' (跟随订阅国家参考价) 与 'custom' (自定义实付金额)
+  // Explicitly switch price mode: 'preset' (follow subscription country reference price) vs 'custom' (custom actual price paid)
   function switchPlanPriceMode(newMode) {
     ++userActionSeq;
     const ps = ANTIGRAVITY_TOKEN_DATA.planStatus || {};
@@ -749,7 +749,7 @@
 
     let customObj = null;
     if (targetMode === 'preset') {
-      // 切换为「跟随订阅国家参考价」：实时根据当前订阅国家派生官方参考价与币种
+      // Switch to "Follow subscription country reference price": derive official reference price and currency live from current subscription country
       const currentReg = prevCustom.subscriptionCountry || prevCustom.subscriptionRegion || prevCustom.region || ps.region || '';
       const matched = core?.findRegionPreset ? core.findRegionPreset(currentReg) : core?.SUBSCRIPTION_REGIONS_PRESET?.find(p => p.id === currentReg || p.name === currentReg);
       const isUltraTier = ps.tierKey === 'ultra';
@@ -773,7 +773,7 @@
       applyCustomPlanObjectLocally(customObj, email);
       void persistSettingsToHost({ email, customPlan: customObj });
     } else {
-      // 切换为「自定义实付金额」：开启自定义模式并展开行内编辑表单
+      // Switch to "Custom actual price paid": enable custom mode and expand inline edit form
       const isZero = Boolean(prevCustom.isZeroExtraCost || prevCustom.actualPricePaid === 0);
       const paid = isZero ? 0 : (prevCustom.actualPricePaid !== null && prevCustom.actualPricePaid !== undefined ? prevCustom.actualPricePaid : (prevCustom.customActualPrice ?? null));
 
@@ -791,7 +791,7 @@
     }
   }
 
-  // 用户点选「订阅国家」：在参考价模式下实时派生价格与币种，在自定义模式下保持用户实付金额与币种
+  // User selects "Subscription Country": derive price & currency live in preset mode; preserve user's actual price & currency in custom mode
   function applyDirectRegionSelection(regionItem) {
     if (!regionItem) return;
     ++userActionSeq;
@@ -815,7 +815,7 @@
     let cycle = '月付';
 
     if (currentPriceMode === 'custom') {
-      // 自定义实付模式：切换国家严格保留用户此前设置的实付金额与币种，绝不静默覆盖！
+      // Custom actual-paid mode: switching country strictly preserves the user's previously set actual price and currency; never silently overwrite!
       isZero = Boolean(prevCustom.isZeroExtraCost || prevCustom.actualPricePaid === 0);
       curCode = prevCustom.subscriptionCurrency || prevCustom.currency || regionItem.currency;
       curSymbol = core?.CURRENCY_SYMBOLS?.[curCode] || '$';
@@ -823,7 +823,7 @@
       priceSource = 'custom';
       cycle = isZero ? '随套餐赠送/免费' : (prevCustom.billingCycle || '月付');
     } else {
-      // 跟随订阅国家参考价模式：仅 Pro 等有统一区域参考表时派生价格；Ultra 不套用 Pro 参考价
+      // Follow subscription country reference price mode: derive price only when a unified regional reference table exists (e.g. Pro); do not apply Pro reference prices to Ultra
       const isUltraTier = ps.tierKey === 'ultra';
       curCode = regionItem.currency;
       curSymbol = core?.CURRENCY_SYMBOLS?.[curCode] || regionItem.symbol || '$';
@@ -860,7 +860,7 @@
     refreshDirectCurrencyDisplay(curCode);
     applyCustomPlanObjectLocally(customObj, email);
 
-    // 双向同步：更新订阅国家表单及币种（使用纯同步防护守卫，防级联循环）
+    // Two-way sync: update subscription country form and currency (uses pure sync guard to prevent cascading loops)
     runWithUiHydration(() => {
       const directCurSel = el('direct-currency-select');
       if (directCurSel) directCurSel.value = curCode === 'TWD' ? 'TWD' : curCode;
@@ -892,7 +892,7 @@
     void persistSettingsToHost({ email, customPlan: customObj });
   }
 
-  // 用户单独修改「账号所在地区」：仅修改本地记录，绝不影响订阅国家、订阅币种或订阅金额
+  // User changes "Account Region" alone: updates local record only; never affects subscription country, currency, or price
   function applyDirectCountrySelection(newCountryVal) {
     ++userActionSeq;
     const ps = ANTIGRAVITY_TOKEN_DATA.planStatus || {};
@@ -924,7 +924,7 @@
     void persistSettingsToHost({ email, customPlan: customObj });
   }
 
-  // 用户单独修改「订阅币种」：独立更新结算币种与符号，严格保持账号所在地区和订阅国家不变
+  // User changes "Subscription Currency" alone: independently updates settlement currency & symbol while strictly keeping account region and subscription country unchanged
   function applyDirectCurrencySelection(newCurrencyVal) {
     if (!newCurrencyVal) return;
     ++userActionSeq;
@@ -950,7 +950,7 @@
       paid = 0;
       priceSource = 'custom';
     } else if (currentPriceMode === 'preset') {
-      // 检查新币种在预设库中是否有基准定价
+      // Check whether the new currency has a baseline price in the preset catalog
       const matchedNewPreset = core?.SUBSCRIPTION_REGIONS_PRESET?.find(p => p.currency === curCode);
       if (matchedNewPreset) {
         paid = matchedNewPreset.monthlyPrice;
@@ -1017,7 +1017,7 @@
     applyDirectCurrencySelection(e.target?.value || 'USD');
   });
 
-  // 绑定统一定制「账号所在地区」、「订阅国家」与「订阅币种」下拉组件
+  // Bind unified custom dropdowns for "Account Region", "Subscription Country", and "Subscription Currency"
   function initDirectCountryDropdown() {
     return initDropdownController({
       wrapId: 'direct-country-wrap',
@@ -1122,12 +1122,12 @@
     });
   }
 
-  // 立即触发初始化三大原生定制下拉
+  // Immediately trigger initialization of the three native custom dropdowns
   initDirectCountryDropdown();
   initDirectRegionDropdown();
   initDirectCurrencyDropdown();
 
-  // 全局点击外部关闭所有下拉
+  // Global click-outside handler to close all dropdowns
   if (typeof shadow !== 'undefined' && shadow && shadow.addEventListener) {
     shadow.addEventListener('click', (e) => {
       if (!e.target?.closest?.('.ag-dropdown-wrapper')) {
@@ -1143,7 +1143,7 @@
     });
   }
 
-  // 套餐详情卡片展开与收回（统一走 setPlanDetailExpanded）
+  // Plan detail card expand/collapse (unified via setPlanDetailExpanded)
   el('plan-summary-price-badge')?.addEventListener('click', () => {
     setPlanDetailExpanded(!planDetailExpanded);
   });
@@ -1159,7 +1159,7 @@
     setPlanDetailExpanded(false);
   });
 
-  // 统一基于 initDropdownController 将原生 <select> 改造为高端自定义下拉组件（全界面风格与交互 100% 一致）
+  // Unified upgrade of native <select> elements into custom dropdowns via initDropdownController (100% consistent UI style and interaction)
   const enhancedDropdowns = new Map();
   const NATIVE_DROPDOWN_SPECS = [
     { selectId: 'token-account-select', wrapId: 'token-account-dropdown-wrap', triggerId: 'token-account-dropdown-trigger', labelId: 'token-account-dropdown-label', menuId: 'token-account-dropdown-menu', compact: true },
@@ -1285,7 +1285,7 @@
 
   syncAllNativeSelectDropdowns();
 
-  // 点击外部自动收起下拉浮层（closeAllDropdowns 同步更新 aria-expanded）
+  // Auto-collapse dropdown overlay on outside click (closeAllDropdowns also updates aria-expanded)
   if (typeof document !== 'undefined' && document.addEventListener) {
     document.addEventListener('click', (e) => {
       try {
@@ -1592,7 +1592,7 @@
 
   initValidEndDatePicker();
 
-  // 就地行内自定义订阅表单交互（实际读取优先于手填，支持官方依据活动来源）
+  // Inline custom subscription form interaction (actual read values take precedence over manual input; supports official acquisition source)
   function togglePlanCustomForm(forceOpen) {
     const form = el('plan-custom-form');
     if (!form) return;

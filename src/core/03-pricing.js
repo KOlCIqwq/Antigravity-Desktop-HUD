@@ -138,7 +138,7 @@
         coveragePercent = 0;
       } else if (unpricedRequestsCount > 0 || unpricedTokens > 0) {
         isPartialCoverage = true;
-        // 当存在未计价历史记录或未知 token 未计时，不能虚假呈现 100% 覆盖
+        // Do not falsely report 100% coverage when unpriced history records or untimed unknown tokens exist
         if (unpricedTokens === 0) {
           coveragePercent = requestCoveragePercent;
         } else {
@@ -245,7 +245,7 @@
     const callId = extractCallId(row, cascadeId, stepIndex ?? 0);
     if (!callId) return null;
 
-    // 完成状态管理：依据完成标记或耗时证据判定 final，流式中或只有部分文本时判定 streaming
+    // Completion status: mark final based on completion flag or duration evidence; mark streaming when streaming or only partial text is present
     const hasExplicitFinish = Boolean(
       row.status === 'final' ||
       row.status === 'completed' ||
@@ -258,7 +258,7 @@
     const status = hasExplicitFinish || (hasUsage && !row.isStreaming && row.status !== 'streaming') ? 'final' : 'streaming';
     const isEstimated = !hasUsage || output === 0;
 
-    // 日期与时间戳：优先按真实创建时间转为本地日历日；RPC 缺失时间时显式标记 provisional 以便后续被权威时间校准覆盖
+    // Date and timestamp: prefer local calendar day from true creation time; mark provisional when RPC lacks timestamp so authoritative time can overwrite it later
     let callDate = null;
     let callTimestamp = null;
     let dateSource = null;
@@ -311,7 +311,7 @@
     };
     const costCalc = calculateRequestApiCost(reqObj);
 
-    // 解析实测速度字段（绝不补零或估算缺失速度）
+    // Parse measured speed fields (never zero-fill or estimate missing speed)
     const ttftSecRaw = parseDurationSec(cm.timeToFirstToken) ?? (row.ttftSec !== undefined && row.ttftSec !== null && Number.isFinite(Number(row.ttftSec)) && Number(row.ttftSec) >= 0 ? Number(row.ttftSec) : null);
     const streamingSecRaw = parseDurationSec(cm.streamingDuration) ?? (row.streamingSec !== undefined && row.streamingSec !== null && Number.isFinite(Number(row.streamingSec)) && Number(row.streamingSec) >= 0 ? Number(row.streamingSec) : null);
     let durationSecRaw = null;

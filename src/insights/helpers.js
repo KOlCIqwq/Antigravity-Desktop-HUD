@@ -308,7 +308,7 @@ function summarizeStepBriefText(step) {
 }
 
 /**
- * 将单条 Antigravity trajectory 与 generatorMetadata 组装为完整的深度洞察载荷
+ * Assemble a single Antigravity trajectory and generatorMetadata into a complete deep-dive insights payload
  */
 module.exports = {
   MAX_BROWSER_TEXT_LEN, MAX_CMD_OUTPUT_LEN, MAX_SCHEMA_TEXT_LEN,

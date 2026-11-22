@@ -16,7 +16,7 @@ function dedupeScanPaths(paths = [], platform = process.platform) {
 }
 
 /**
- * 解析 Windows 注册表 Lxss 导出内容，提取已安装且可用的 WSL 发行版
+ * Parse Windows Registry Lxss export content to extract installed and usable WSL distributions
  * @param {string} rawText
  */
 function parseLxssRegistryOutput(rawText = '') {
@@ -228,9 +228,9 @@ function discoverWslGeminiDirs(options = {}) {
 }
 
 /**
- * 带超时保护与缓存的异步 WSL 目录发现：
- * - 对慢 UNC/休眠发行版施加有界超时（默认 1500ms），不阻塞主循环或拖慢 UI；
- * - 不执行任何写入或主动拉起未运行发行版，权限不足/不可达时记录 skippedRoots 并安全跳过。
+ * Asynchronous WSL directory discovery with timeout protection and caching:
+ * - Apply a bounded timeout (default 1500ms) to slow UNC/sleeping distros so it never blocks the main loop or slows the UI;
+ * - Perform no writes and never wake stopped distros; record skippedRoots and skip safely on permission/unreachability errors.
  */
 async function discoverWslGeminiDirsAsync(options = {}) {
   const platform = options.platform || process.platform;
@@ -498,7 +498,7 @@ function getOrStartHistoryWorker(workerEntry = __filename) {
     if (historyWorkerInstance === w) historyWorkerInstance = null;
     clearAllHistoryWorkerPending(w, code !== 0 ? `worker_exit_${code}` : null);
   });
-  // Node.js v24 注册 message 监听会隐式 ref 底层 MessagePort，必须在全部监听绑定之后再 unref
+  // Node.js v24 implicitly refs the underlying MessagePort when registering message listeners; unref must be called after all listeners are bound
   try { w.unref(); } catch { }
   historyWorkerInstance = w;
   return w;
@@ -513,7 +513,7 @@ function invalidateHostLedgerAndHistoryCaches() {
 }
 
 /**
- * 异步入账模型调用记录（优先交由后台 Worker 线程执行大账本读写与合并，保持串行无竞态并零阻塞主进程事件循环）
+ * Asynchronously record model call entries (preferring a background Worker thread for large ledger I/O and merging to stay serialized, race-free, and non-blocking on the main event loop)
  * @param {Array<object>} newCalls
  * @param {object|string} options
  */

@@ -6,7 +6,7 @@
   const STOCK_DEFAULT_CLAMP_TOKENS = 256000;
   const DEFAULT_CONFIRM_TIMEOUT_MS = 45000;
 
-  // 来自宿主 bundle E.Model 的已知静态枚举值（动态 PLACEHOLDER_M* 由 cascadeModelConfigs 解析）
+  // Known static enum values from host bundle E.Model (dynamic PLACEHOLDER_M* resolved from cascadeModelConfigs)
   const STATIC_MODEL_ENUM_MAP = {
     235: 'chat_20706',
     246: 'google_gemini_2_5_pro',
@@ -46,7 +46,7 @@
   };
 
   /**
-   * 规范化 Protobuf 枚举前缀：将 "MODEL_PLACEHOLDER_M37" 与 "PLACEHOLDER_M37" 对齐
+   * Normalize Protobuf enum prefix: align "MODEL_PLACEHOLDER_M37" with "PLACEHOLDER_M37"
    */
   function stripModelEnumPrefix(raw) {
     if (raw === null || raw === undefined) return '';
@@ -56,7 +56,7 @@
   }
 
   /**
-   * 从通用数值编号转成 E.Model 枚举名（支持 1000+ 为 PLACEHOLDER_M{n-1000}）
+   * Convert generic numeric ID to E.Model enum name (1000+ maps to PLACEHOLDER_M{n-1000})
    */
   function modelEnumNumberToName(num) {
     const n = Number(num);
@@ -67,8 +67,8 @@
   }
 
   /**
-   * 判断 URL / RPC 方法是否为允许注入上下文预算的目标 RPC
-   * 事实核对：StartCascadeRequest 不含 cascade_config，仅 SendUserCascadeMessage 携带
+   * Check whether URL / RPC method is a target RPC eligible for context budget injection.
+   * Fact check: StartCascadeRequest does not contain cascade_config; only SendUserCascadeMessage carries it.
    */
   function isTargetBudgetRpc(urlOrProcedure) {
     if (!urlOrProcedure) return false;
@@ -78,8 +78,8 @@
   }
 
   // =========================================================================
-  // 1. Protobuf Binary Wire 编解码器（零依赖精准读写 SendUserCascadeMessageRequest）
-  //    真实 Schema 核验结果：
+  // 1. Protobuf Binary Wire Codec (zero-dependency exact read/write for SendUserCascadeMessageRequest)
+  //    Verified schema layout:
   //    - SendUserCascadeMessageRequest: 1 = cascade_id (string), 5 = cascade_config (CascadeConfig)
   //    - CascadeConfig: 1 = planner_config (CascadePlannerConfig), 2 = checkpoint_config (CheckpointConfig)
   //    - CascadePlannerConfig: 1 = plan_model (enum), 15 = requested_model (ModelOrAlias: 1=model, 2=alias),
@@ -141,7 +141,7 @@
   }
 
   /**
-   * 严格解析单层 Protobuf 消息字段，保留每个字段的原始完整切片（tag+value）
+   * Strictly parse single-layer Protobuf message fields, preserving each field's raw slice (tag + value)
    */
   function parseProtoFields(bytes) {
     if (!(bytes instanceof Uint8Array)) throw new Error('Expected Uint8Array');
@@ -206,7 +206,7 @@
   }
 
   /**
-   * 从二进制 SendUserCascadeMessageRequest 提取 cascadeId、模型标识与既有 checkpointConfig
+   * Extract cascadeId, model identifier, and existing checkpointConfig from binary SendUserCascadeMessageRequest
    */
   function extractProtoSendMessageMetadata(bytes) {
     const topFields = parseProtoFields(bytes);
@@ -280,7 +280,7 @@
   }
 
   /**
-   * 无损重写二进制 SendUserCascadeMessageRequest 中的 cascade_config(5).checkpoint_config(2).max_token_limit(5)
+   * Losslessly rewrite cascade_config(5).checkpoint_config(2).max_token_limit(5) in binary SendUserCascadeMessageRequest
    * @param {Uint8Array} bytes
    * @param {{ mode: 'fixed'|'dynamic'|'default', limitTokens?: number|null }} action
    */
@@ -288,7 +288,7 @@
     const topFields = parseProtoFields(bytes);
     const isFixed = action?.mode === 'fixed' && Number.isSafeInteger(action?.limitTokens) && action.limitTokens > 0;
 
-    // 重建 CheckpointConfig bytes：保留所有非 field 5 (max_token_limit) 的字段
+    // Rebuild CheckpointConfig bytes: preserve all fields except field 5 (max_token_limit)
     const buildCheckpointBytes = (existingCpBytes) => {
       const kept = [];
       if (existingCpBytes) {
@@ -305,7 +305,7 @@
       return concatUint8Arrays(kept);
     };
 
-    // 重建 CascadeConfig bytes：保留所有非 field 2 (checkpoint_config) 的字段
+    // Rebuild CascadeConfig bytes: preserve all fields except field 2 (checkpoint_config)
     const buildCascadeConfigBytes = (existingCfgBytes) => {
       const kept = [];
       let mergedCp = null;
@@ -348,7 +348,7 @@
   }
 
   // =========================================================================
-  // 2. 多传输格式解包与回包（JSON / Lcc WebSocket JSON / 5-byte Envelope / Protobuf Binary）
+  // 2. Multi-transport unpack & repack (JSON / Lcc WebSocket JSON / 5-byte Envelope / Protobuf Binary)
   // =========================================================================
 
   function toUint8Array(body) {
@@ -368,7 +368,7 @@
   }
 
   /**
-   * 统一解包外发请求体或 WebSocket 文本帧
+   * Unified unpacker for outbound request bodies or WebSocket text frames
    * @param {any} body
    * @param {{ channel?: string, urlOrProcedure?: string, contentType?: string }} [meta]
    */
@@ -386,7 +386,7 @@
       } catch {
         return null;
       }
-      // 宿主 Lcc WebSocket JSON 封装：{ streamId, type: "start", procedure, stream, headers, payload }
+      // Host Lcc WebSocket JSON wrapper: { streamId, type: "start", procedure, stream, headers, payload }
       if (parsed && typeof parsed === 'object' && parsed.type === 'start' && typeof parsed.procedure === 'string' && parsed.payload && typeof parsed.payload === 'object') {
         return {
           format: 'ws_lcc_json',
@@ -401,7 +401,7 @@
     const raw = toUint8Array(body);
     if (!raw || raw.length === 0) return null;
 
-    // 优先判断是否为 5 字节 Connect / gRPC-Web Envelope：[flags(1B), uint32BE length(4B)] + body
+    // Check for 5-byte Connect / gRPC-Web Envelope first: [flags(1B), uint32BE length(4B)] + body
     const expectsProtoContentType = contentType.includes('proto') || contentType.includes('grpc');
     if (raw.length >= 5) {
       const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
@@ -428,7 +428,7 @@
       }
     }
 
-    // 尝试纯 UTF-8 JSON 二进制体
+    // Try plain UTF-8 JSON binary body
     if (!expectsProtoContentType) {
       try {
         const text = new TextDecoder('utf-8', { fatal: true }).decode(raw);
@@ -447,7 +447,7 @@
       } catch {}
     }
 
-    // 尝试原始二进制 Protobuf（仅当 URL/类型表明是目标 Protobuf RPC，避免对任意二进制误解析）
+    // Try raw binary Protobuf (only when URL/type indicates target Protobuf RPC, to avoid misparsing arbitrary binary)
     if (expectsProtoContentType || isTargetBudgetRpc(urlOrProc)) {
       try {
         const protoMeta = extractProtoSendMessageMetadata(raw);
@@ -500,12 +500,12 @@
   }
 
   // =========================================================================
-  // 2.5 模型能力参考、当前客户端运行策略解析、可调范围与统一模式逐模型预测
+  // 2.5 Model capability reference, runtime policy resolution, adjustable range, and unified-mode per-model prediction
   // =========================================================================
 
   /**
-   * 严格解析底座解锁/运行策略状态，将“磁盘检测模式”与“当前运行态确认状态”彻底分离
-   * 绝不将 null / partial / pending_restart / runtime_unconfirmed 当作已运行的 dynamic 或 256K
+   * Strictly parse base unlock/runtime policy state, separating "disk-detected mode" from "runtime confirmation state".
+   * Never treat null / partial / pending_restart / runtime_unconfirmed as active dynamic or 256K.
    */
   function resolveRuntimeUnlockPolicy(unlockStatus) {
     if (!unlockStatus || typeof unlockStatus !== 'object') {
@@ -529,7 +529,7 @@
       ? unlockStatus.runtimeEvidence
       : null;
 
-    // 1. 解析磁盘/配置态策略（读取真实 fixed 固定值，绝不一律退化为 256,000）
+    // 1. Parse disk/config-state policy (read actual fixed value; never blindly fall back to 256,000)
     let diskMode = 'unknown';
     let diskLimitTokens = null;
     const rawConfMode = unlockStatus.configuredMode;
@@ -556,7 +556,7 @@
       diskMode = 'partial';
     }
 
-    // 2. 判定运行态确认级别（磁盘修改后尚未重启、进程未确认、部分匹配、未知均不可直接冒充已运行生效）
+    // 2. Determine runtime confirmation level (unrestarted disk edits, unconfirmed process, partial match, or unknown must never impersonate active runtime)
     let runtimeState = 'unknown';
     let policyKnown = false;
     let diskVsRuntimeMismatch = false;
@@ -572,7 +572,7 @@
       runtimeState = 'runtime_unconfirmed';
       diskVsRuntimeMismatch = true;
     } else if (status === 'patched_loaded' || status === 'not_patched' || !status) {
-      // 无否定状态且非待重启时，若传入明确策略（patched_loaded / not_patched / 或直接传入策略对象）则认定策略已知
+      // When no negative state and not pending restart, treat policy as known if an explicit state (patched_loaded / not_patched / or policy object) is passed
       runtimeState = 'confirmed';
       policyKnown = true;
     }
@@ -599,9 +599,9 @@
   }
 
   /**
-   * 从产品及其成员（含 GetAvailableModels / Step.metadata.modelInfo）汇总真实能力元数据，
-   * 并严格分离：模型理论能力上限、当前客户端限制、当前策略默认预算、当前环境可采纳范围
-   * 仅采信结构化字段（maxTokens / maxOutputTokens）；不做型号名字猜测或硬编码
+   * Aggregate real capability metadata from product and its members (including GetAvailableModels / Step.metadata.modelInfo),
+   * strictly separating: model theoretical cap, current client limit, current policy default budget, and adoptable range.
+   * Only trust structured fields (maxTokens / maxOutputTokens); no model-name guessing or hardcoding.
    */
   function deriveModelCapabilitySummary(product, unlockStatus = null, modelCapabilitiesById = null) {
     const members = Array.isArray(product?.members) ? product.members : [];
@@ -658,7 +658,7 @@
     const isDynamicUnlocked = runtimePolicy.isDynamicUnlocked;
     const currentClientLimitTokens = runtimePolicy.currentClientLimitTokens;
 
-    // 1. 模型理论能力上限与动态基准（仅依据模型结构化元数据，不受客户端状态左右）
+    // 1. Model theoretical capability cap and dynamic baseline (based solely on structured model metadata, independent of client state)
     let modelTheoreticalMaxTokens = null;
     let dynamicDefaultBudget = null;
     if (maxTokens !== null && maxOutputTokens !== null && maxTokens > maxOutputTokens) {
@@ -667,12 +667,12 @@
       modelTheoreticalMaxTokens = Math.min(DEFAULT_MAX_TOKENS, maxTokens - maxOutputTokens);
     }
 
-    // 2. 当前策略默认预算（未携带自定义 maxTokenLimit 时的当前运行态默认结果）：
-    //    依据二进制核实：
-    //    - utils.GetCheckpointConfig 在 default(ORIG) 下按 min(dynamicDefault, 256000) 钳位；
-    //    - 在 fixed(CONST=N) 下直接改写为 N，并经 ClampCheckpointConfigForModelInfo 钳位至 <= maxTokens - maxOutputTokens；
-    //    - 在 dynamic(DYN) 下采用 dynamicDefault；
-    //    - 在未知 / 部分匹配 / 待重启 / 运行未确认状态下必须保持 null（不可猜测或直接套用 983040 / 256000）
+    // 2. Current policy default budget (runtime default when no custom maxTokenLimit is carried):
+    //    Verified against binary:
+    //    - utils.GetCheckpointConfig clamps to min(dynamicDefault, 256000) under default(ORIG);
+    //    - under fixed(CONST=N), rewrites directly to N and clamps via ClampCheckpointConfigForModelInfo to <= maxTokens - maxOutputTokens;
+    //    - under dynamic(DYN), uses dynamicDefault;
+    //    - under unknown / partial / pending_restart / runtime_unconfirmed, must remain null (never guess or apply 983040 / 256000).
     let currentStrategyDefaultBudget = null;
     if (runtimePolicy.policyKnown) {
       if (runtimePolicy.runtimeMode === 'dynamic') {
@@ -694,9 +694,9 @@
     }
     const effectiveDefaultBudget = currentStrategyDefaultBudget;
 
-    // 3. 当前环境下可确认的安全可调上限（与参考卡、最大可用按钮、预设/校验和统一预测一致）：
-    //    虽然局部合并链中请求显式 maxTokenLimit 优先级高于默认基座，但未开启 Dynamic 并经实机确认前，
-    //    下游覆盖与服务端策略限制仍可能将实际预算束缚于 currentClientLimitTokens
+    // 3. Confirmed safe adjustable cap in current environment (consistent with reference card, max-available button, presets/validation, and unified prediction):
+    //    Although explicit request maxTokenLimit has higher priority in local merge chain than base default, until Dynamic is enabled and confirmed on device,
+    //    downstream overrides and server policy limits may still constrain actual budget to currentClientLimitTokens.
     let maxAdjustableTokens = null;
     if (runtimePolicy.policyKnown) {
       if (runtimePolicy.runtimeMode === 'dynamic') {
@@ -764,8 +764,8 @@
   }
 
   /**
-   * 评估当前输入/预设在对应模型能力与当前客户端运行策略下的合法性及可采纳值
-   * 绝不静默篡改用户数值并报成功，也不混淆模型能力上限与客户端策略上限
+   * Evaluate validity and adoptable value of current input/preset against model capability and current client runtime policy.
+   * Never silently alter the user's value and report success, and never confuse model capability cap with client policy limit.
    */
   function evaluateLimitInput(rawVal, capSummary = null, unlockStatus = null, serviceLimit = null) {
     const rawStr = typeof rawVal === 'number' ? String(rawVal) : String(rawVal ?? '').trim().replace(/[,\s_]/g, '');
@@ -876,8 +876,8 @@
   }
 
   /**
-   * 统一预算模式下，为每个模型预测当前运行策略下的可采纳结果
-   * 严格区分“预测值”与“运行已确认”，绝不把未知/待重启/default/fixed 错判为 exact
+   * In unified budget mode, predict adoptable result per model under the current runtime policy.
+   * Strictly distinguish "predicted value" from "runtime-confirmed"; never misclassify unknown/pending_restart/default/fixed as exact.
    */
   function projectUnifiedBudgetForProducts(unifiedPref, products = [], unlockStatus = null, modelCapabilitiesById = null) {
     const mode = unifiedPref?.mode || 'default';
@@ -1017,7 +1017,7 @@
         };
       }
 
-      // runtimeMode === 'default' (256,000) 或 'fixed' (N)
+      // runtimeMode === 'default' (256,000) or 'fixed' (N)
       if (modelCap !== null && rawLimit > modelCap) {
         if (clientCap !== null && clientCap < modelCap && rawLimit > clientCap) {
           return {
@@ -1085,7 +1085,7 @@
   }
 
   // =========================================================================
-  // 3. 请求模型提取（严禁回退至插件配置面板选中项或全局历史快照）
+  // 3. Request model extraction (never fall back to plugin settings panel selection or global historical snapshot)
   // =========================================================================
 
   function matchConfigByCandidate(candidate, knownConfigs) {
@@ -1143,10 +1143,10 @@
     }
     if (!strVal) return null;
 
-    // 去除 Protobuf enum 前缀并美化可读名称用于分组兜底
+    // Strip Protobuf enum prefix and prettify readable name for fallback grouping
     const stripped = stripModelEnumPrefix(strVal);
     if (/^PLACEHOLDER_M\d+$/i.test(stripped)) {
-      // 未能在已知目录中找到具体产品名时，按准确占位 ID 分组而不是跨模型猜测
+      // When no concrete product name is found in known catalog, group by exact placeholder ID rather than guessing across models
       const g = groupFn({ modelId: stripped.toLowerCase(), label: stripped.toLowerCase() });
       return {
         productKey: g?.productKey || `product:other:${stripped.toLowerCase()}`,
@@ -1170,7 +1170,7 @@
   }
 
   /**
-   * 从出站请求对象 / 二进制元数据提取实际模型产品键
+   * Extract actual model product key from outbound request object / binary metadata
    * @param {object} requestOrProtoMeta
    * @param {{
    *   isProtoMeta?: boolean,
@@ -1257,7 +1257,7 @@
   }
 
   // =========================================================================
-  // 4. 预算偏好查询与请求篡改（支持对象/JSON/Protobuf、保护 $typeName 与默认清理）
+  // 4. Budget preference lookup & request rewriting (supports object/JSON/Protobuf, preserves $typeName, and cleans up defaults)
   // =========================================================================
 
   function findPreferenceForProduct(productKey, contextPreferencesMap) {
@@ -1294,7 +1294,7 @@
   }
 
   /**
-   * 在 JS 请求对象上注入/清理 CheckpointConfig.maxTokenLimit（支持 Snake/Camel 单套与 @bufbuild/protobuf v2 $typeName）
+   * Inject or clear CheckpointConfig.maxTokenLimit on JS request objects (supports Snake/Camel single-form and @bufbuild/protobuf v2 $typeName)
    */
   function applyBudgetPolicyToObject(payload, policy) {
     if (!payload || typeof payload !== 'object' || !policy) {
@@ -1328,7 +1328,7 @@
       return { modified: true, appliedMode: 'fixed', sentLimitTokens: policy.limitTokens };
     }
 
-    // dynamic 或 default：必须清除任何残留固定阈值，绝不保留上一次遗留的 fixed 值
+    // dynamic or default: must clear any residual fixed threshold; never retain a leftover fixed value from earlier
     let cleared = false;
     if (payload.cascadeConfig?.checkpointConfig && payload.cascadeConfig.checkpointConfig.maxTokenLimit !== undefined) {
       delete payload.cascadeConfig.checkpointConfig.maxTokenLimit;
@@ -1346,18 +1346,18 @@
   }
 
   /**
-   * 一体化拦截变换（支持 client_object / HTTP JSON / WebSocket Lcc / Envelope / Protobuf Binary）
+   * All-in-one intercept transform (supports client_object / HTTP JSON / WebSocket Lcc / Envelope / Protobuf Binary)
    */
   function transformOutgoingSendRequest(input, context = {}) {
     const channel = context.channel || 'http';
     const urlOrProcedure = context.urlOrProcedure || '';
 
-    // 1. 先检查 RPC 通道目标
+    // 1. Check RPC channel target first
     if (channel !== 'ws_frame' && urlOrProcedure && !isTargetBudgetRpc(urlOrProcedure)) {
       return { handled: false, passthrough: true, reason: 'non_target_rpc' };
     }
 
-    // 2. 如果是客户端装饰器直传对象
+    // 2. If direct object passed from client decorator
     if (channel === 'client_object') {
       if (!input || typeof input !== 'object') {
         return { handled: false, passthrough: true, reason: 'invalid_client_request' };
@@ -1415,13 +1415,13 @@
       };
     }
 
-    // 3. 传输层帧/请求体（WebSocket / Fetch / XHR）
+    // 3. Transport-layer frame/request body (WebSocket / Fetch / XHR)
     const unpacked = unpackTransportPayload(input, { channel, urlOrProcedure, contentType: context.contentType });
     if (!unpacked) {
       return { handled: false, passthrough: true, reason: 'unrecognized_body' };
     }
 
-    // WebSocket Lcc 帧需在解包后检验 procedure
+    // WebSocket Lcc frames require checking procedure after unpacking
     if (channel === 'ws_frame') {
       if (!unpacked.procedure || !isTargetBudgetRpc(unpacked.procedure)) {
         return { handled: false, passthrough: true, reason: 'non_target_ws_procedure' };
@@ -1539,7 +1539,7 @@
   }
 
   // =========================================================================
-  // 5. 发送追踪、因果观测与严格状态机 (杜绝时间戳造假与假确认)
+  // 5. Dispatch tracking, causal observation & strict state machine (prevents timestamp fabrication and false confirmation)
   // =========================================================================
 
   function makeScopeKey(convoId, productKey) {
@@ -1551,14 +1551,14 @@
     const nowFn = typeof options.now === 'function' ? options.now : () => Date.now();
     let seqCounter = 0;
 
-    // 按 (convoId, productKey) 隔离保存最近发送记录，防止并发会话/快速切换互相覆盖
+    // Store latest dispatch record isolated by (convoId, productKey) to prevent concurrent sessions/rapid switches from overwriting each other
     const dispatchesByScope = new Map();
     const dispatchesById = new Map();
-    // 仅在无活跃会话上下文时辅助查询按产品的最近发送，不跨会话冒用确认
+    // Fallback lookup by product only when no active session context exists; never spoof confirmation across sessions
     const dispatchesByProduct = new Map();
-    // 按 (convoId, productKey) 隔离保存真实观测快照
+    // Store real observation snapshots isolated by (convoId, productKey)
     const observationsByScope = new Map();
-    // 已验证的会话->模型绑定（仅来自明确请求的响应或该会话真实 metadata）
+    // Verified session -> model bindings (only from explicit request responses or that session's real metadata)
     const verifiedConversationBindings = Object.create(null);
 
     function recordConversationBinding(convoId, binding) {
@@ -1597,7 +1597,7 @@
       }
 
       const baseline = getBaselineForScope(convoId, productKey);
-      // 严禁在诊断追踪中落盘任何用户对话内容或凭证信息，仅保留结构化预算追踪字段
+      // Never persist user conversation content or credentials in diagnostic traces; keep only structured budget tracking fields
       const sanitizedPrefSnapshot = info.prefSnapshot && typeof info.prefSnapshot === 'object'
         ? {
           mode: info.prefSnapshot.mode || 'default',
@@ -1654,7 +1654,7 @@
     }
 
     /**
-     * 记录后端真实观测，绝不在旧快照上用 Date.now() 刷新 ts
+     * Record real backend observation; never refresh ts on an old snapshot using Date.now()
      */
     function recordObservation(obsInput = {}) {
       const convoId = obsInput.convoId || obsInput.cascadeId || null;
@@ -1670,7 +1670,7 @@
       const stepCount = Number.isFinite(Number(obsInput.stepCount)) ? Number(obsInput.stepCount) : -1;
       const explicitTs = Number(obsInput.ts || 0);
 
-      // 判定是否为“新步骤 / 新响应”，而非同一快照反复轮询（绝不因 poll 时间戳增加而推进旧快照 ts）
+      // Determine whether this is a "new step / new response" rather than repeated polling of the same snapshot (never advance old snapshot ts on poll)
       const sameCall = callId ? prev?.callId === callId : prev?.callId === null;
       const sameStep = stepCount === prev?.stepCount;
       const downgradedMissingCall = Boolean(
@@ -1726,7 +1726,7 @@
       if (convoId) {
         return observationsByScope.get(makeScopeKey(convoId, productKey)) || null;
       }
-      // 无活跃会话时不臆测，可按最新 matching scope 返回但标注 convoId
+      // Do not guess when no active session exists; may return latest matching scope while annotating convoId
       let latest = null;
       for (const obs of observationsByScope.values()) {
         if (obs.productKey === productKey && (!latest || obs.ts > latest.ts)) {
@@ -1759,11 +1759,11 @@
       const changedCall = Boolean(obs.callId && obs.callId !== dispatch.baselineCallId);
       const advancedStep = obs.stepCount >= 0 && obs.stepCount > dispatch.baselineStepCount;
       if (changedCall || advancedStep) return true;
-      // 若 callId 与发送前基线完全相同且步骤未增长，说明仍是旧快照（即便 scannedAt/ts 更新也绝非新响应）
+      // If callId matches pre-send baseline and step count has not grown, it is still the old snapshot (even if scannedAt/ts updated, never a new response)
       if (obs.callId && dispatch.baselineCallId && obs.callId === dispatch.baselineCallId) {
         return false;
       }
-      // 若双方均有明确步数基线且未前进，同样禁止仅靠轮询时间戳伪确认
+      // If both sides have clear step baselines and step count has not advanced, forbid pseudo-confirmation from polling timestamps alone
       if (dispatch.baselineStepCount >= 0 && obs.stepCount >= 0 && obs.stepCount <= dispatch.baselineStepCount) {
         return false;
       }
@@ -1800,7 +1800,7 @@
       const serviceLimit = Number(obs?.serviceLimit || 0);
       const modelHardLimit = Number(params.modelHardLimit || obs?.modelHardLimit || 0);
 
-      // 先校验最近发送记录是否匹配“当前保存的新目标”（含从固定改默认、从失败目标改新值），不匹配则不误报旧结果
+      // Verify latest dispatch matches "currently saved new target" (including fixed->default or failed->new value) to avoid misreporting stale results
       const matchesCurrentTarget = Boolean(
         rawDispatched &&
         rawDispatched.targetMode === targetMode &&
@@ -1915,7 +1915,7 @@
         };
       }
 
-      // 精确整数比对，不随便放宽到 ±5% 或 ±64 掩盖差值
+      // Exact integer comparison; do not relax to ±5% or ±64 and mask discrepancies
       if (obsBudget === targetLimit) {
         return {
           status: 'confirmed',
@@ -1928,7 +1928,7 @@
         };
       }
 
-      // 仅当存在明确的服务端或 ModelInfo 硬上限证据且目标超出该上限时，才判定为受模型上限限制
+      // Only classify as capped by model limit when explicit server or ModelInfo hard-cap evidence exists and target exceeds that cap
       const knownCap = (serviceLimit > 0 ? serviceLimit : 0) || (modelHardLimit > 0 ? modelHardLimit : 0);
       if (knownCap > 0 && targetLimit > knownCap && obsBudget <= knownCap) {
         return {

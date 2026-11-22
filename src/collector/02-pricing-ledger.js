@@ -5,7 +5,7 @@ function formatLocalDateKey(dateObj) {
   return `${y}-${m}-${d}`;
 }
 
-// 检查是否为 SQLite 伴生文件或临时文件
+// Check whether a file is a SQLite companion or temporary file
 function isCompanionOrTempFile(fileName) {
   const lower = fileName.toLowerCase();
   return lower.endsWith('-wal') ||
@@ -16,10 +16,10 @@ function isCompanionOrTempFile(fileName) {
     lower.endsWith('.bak');
 }
 
-// 尝试安全读取 LanguageServer 的 GetUserStatus
+// Safely attempt to read GetUserStatus from LanguageServer
 
 // ============================================================================
-// 逐请求已计价账本持久化、合成数据隔离与幂等入账
+// Per-request priced ledger persistence, synthetic data isolation, and idempotent recording
 // ============================================================================
 const ledgerCacheByPath = new Map();
 
@@ -153,13 +153,13 @@ function loadPricingLedger(overridePathOrDir, options = {}) {
 
   if (!readRes.exists) {
     ledgerCacheByPath.delete(cacheKey);
-    // statSync 已确认文件存在，后续读取却返回 exists: false 时必须阻断写入，防止瞬态异常清空账本
+    // Block writes if statSync confirmed the file exists but subsequent read returned exists: false, preventing transient errors from wiping the ledger
     return createUnreadableLedger(p, readRes.error || '账本文件状态不一致（stat 存在但读取返回不存在）', false, 'unreadable_guard', readRes.code || 'ENOENT');
   }
 
   if (readRes.corrupted && !readRes.recoveredFromBackup) {
     ledgerCacheByPath.delete(cacheKey);
-    // 文件存在但损坏且无备份可恢复，绝不能当作正常空数据覆盖
+    // File exists but is corrupted with no recoverable backup; never overwrite it as normal empty data
     return createUnreadableLedger(p, readRes.error, true, 'corrupted_guard', readRes.code);
   }
 
@@ -186,12 +186,12 @@ function loadPricingLedger(overridePathOrDir, options = {}) {
     }
   }
 
-  // 读取阶段在内存态自动消解可确认为同一调用的历史双键 (responseId + cascadeId#stepIndex)，不在纯读路径写盘
+  // During read, automatically resolve historical dual keys (responseId + cascadeId#stepIndex) confirmed to be the same call in memory, without writing to disk on read-only paths
   if (reconcileConfirmableDuplicateStepCalls(ledger.calls)) {
     Object.defineProperty(ledger, '__hadDuplicateStepKeys', { value: true, configurable: true });
   }
 
-  // 正常落盘数据建立自动滚动备份，供损坏时恢复
+  // Create automatic rolling backup for valid persisted data for corruption recovery
   if (!readRes.corrupted) {
     try {
       if (!fsImpl.existsSync(bakPath) || Math.random() < 0.1) {
@@ -284,7 +284,7 @@ function getCallSortTimestamp(rec) {
 }
 
 /**
- * 每个准确模型 ID 最多保留最近 200 条速度样本；超出的只清除速度字段，计费与 token 数据保留不动
+ * Retain at most the latest 200 speed samples per exact model ID; for excess entries, clear only speed fields while keeping billing and token data intact
  */
 function pruneExcessSpeedSamples(draftCalls, limit = MAX_SPEED_SAMPLES_PER_MODEL || 200) {
   if (!draftCalls || typeof draftCalls !== 'object') return false;
@@ -547,7 +547,7 @@ function mergeSameCallRecords(baseEntry, incomingEntry, canonicalKey, explicitSt
     : (incomingEntry.status || baseEntry.status || 'final');
   const mergedRev = !incomingIsStaleStatus && revCmp >= 0 ? (incRev ?? baseRev) : baseRev;
 
-  // 保护已有测速指标与精确模型元数据不被无测速的后续校准覆盖
+  // Protect existing speed metrics and exact model metadata from being overwritten by subsequent calibrations without speed data
   const preservedExactId = incomingEntry.modelExactId || baseEntry.modelExactId;
   const preservedLabel = incomingEntry.modelLabel || baseEntry.modelLabel;
   const preservedEffort = incomingEntry.effort || baseEntry.effort;
@@ -569,7 +569,7 @@ function mergeSameCallRecords(baseEntry, incomingEntry, canonicalKey, explicitSt
       }
       : {});
 
-  // 保留账号归属元数据，避免后续无账号扫描富化抹除已确认的账号归属
+  // Preserve account attribution metadata so subsequent accountless scan enrichments do not erase confirmed account ownership
   const attributionMerged = mergeAccountAttributionFields(baseEntry, incomingEntry);
 
   const merged = {
@@ -630,7 +630,7 @@ function mergeSameCallRecords(baseEntry, incomingEntry, canonicalKey, explicitSt
   return merged;
 }
 
-// 判定跨键单候选 (real, syn) 是否有充分证据确认为同一调用：已完成的非零真实记录严禁接受跨键异构 ID 的用量改写
+// Determine whether a cross-key candidate pair (real, syn) has sufficient evidence of being the same call: completed non-zero real records must never accept usage overwrites from a different cross-key ID
 function isConfirmableSingleStepMatch(real, syn) {
   if (!real || !syn) return false;
   if (!areModelsCompatible(real.model, syn.model)) return false;
@@ -716,7 +716,7 @@ function reconcileConfirmableDuplicateStepCalls(callsObj) {
 
   if (!synItems.length || !realItems.length) return false;
 
-  // 按 (source, cascadeId) 建立局部哈希索引，将 O(syn * real) 降至线性 O(syn + real)
+  // Build local hash index by (source, cascadeId) to reduce O(syn * real) to linear O(syn + real)
   const synCidSet = new Set();
   for (let i = 0; i < synItems.length; i++) {
     synCidSet.add(`${synItems[i].synSrc}\0${synItems[i].synCid}`);
@@ -751,7 +751,7 @@ function reconcileConfirmableDuplicateStepCalls(callsObj) {
   const usedRealKeys = new Set();
   const unmatchedSyn = [];
 
-  // Rule A: 同 (source, cascadeId) 下显式包含相同 stepIndex 且模型兼容的真实 responseId 记录
+  // Rule A: Real responseId record under the same (source, cascadeId) with explicit matching stepIndex and compatible model
   for (const sItem of synItems) {
     const { synKey, syn, synSrc, synCid, synStep } = sItem;
     const indexedA = ruleAIndex.get(`${synSrc}\0${synCid}\0${synStep}`);
@@ -788,7 +788,7 @@ function reconcileConfirmableDuplicateStepCalls(callsObj) {
     }
   }
 
-  // Rule B: 遗留 stepIndex == null 的真实记录，按唯一非零 (source, cascadeId, inp, cap, out) + 兼容模型 1-to-1 消重
+  // Rule B: Legacy real record with stepIndex == null, deduplicated 1-to-1 by unique non-zero (source, cascadeId, inp, cap, out) + compatible model
   if (unmatchedSyn.length) {
     const synByUsage = new Map();
     for (const sItem of unmatchedSyn) {

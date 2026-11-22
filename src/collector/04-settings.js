@@ -1,5 +1,5 @@
 // ============================================================================
-// 用户自定义订阅配置与插件栏偏好持久化（按账号隔离 + default 回退 + 损坏自愈）
+// User custom subscription settings and sidebar preferences persistence (per-account isolation + default fallback + corruption self-healing)
 // ============================================================================
 function getCustomPlanPath(overridePathOrDir) {
   if (overridePathOrDir) {
@@ -18,7 +18,7 @@ function sanitizeAccountPlanEntry(entry, accountKey = 'default') {
   const out = { ...entry };
   out.account = String(entry.account || accountKey || 'default').trim().toLowerCase();
 
-  // 1. 账号所在地区 (accountRegion / country)：独立保留，仅修改本地记录
+  // 1. Account region (accountRegion / country): preserved independently, modifying local record only
   const rawAccReg = (typeof out.accountRegion === 'string' && out.accountRegion.trim())
     ? out.accountRegion.trim()
     : ((typeof out.country === 'string' && out.country.trim()) ? out.country.trim() : '');
@@ -30,7 +30,7 @@ function sanitizeAccountPlanEntry(entry, accountKey = 'default') {
     delete out.country;
   }
 
-  // 2. 订阅国家 (subscriptionCountry / subscriptionRegion / region)：独立保留，可与账号所在地区不同
+  // 2. Subscription country (subscriptionCountry / subscriptionRegion / region): preserved independently, may differ from accountRegion
   const rawSubCountry = (typeof out.subscriptionCountry === 'string' && out.subscriptionCountry.trim())
     ? out.subscriptionCountry.trim()
     : ((typeof out.subscriptionRegion === 'string' && out.subscriptionRegion.trim())
@@ -46,7 +46,7 @@ function sanitizeAccountPlanEntry(entry, accountKey = 'default') {
     delete out.region;
   }
 
-  // 3. 订阅币种 (subscriptionCurrency / currency)：独立保留，支持标记手动(custom)或自动(auto)来源
+  // 3. Subscription currency (subscriptionCurrency / currency): preserved independently, supports manual (custom) or automatic (auto) source flag
   const rawCur = (typeof out.subscriptionCurrency === 'string' && out.subscriptionCurrency.trim())
     ? out.subscriptionCurrency.trim()
     : ((typeof out.currency === 'string' && out.currency.trim()) ? out.currency.trim() : '');
@@ -72,7 +72,7 @@ function sanitizeAccountPlanEntry(entry, accountKey = 'default') {
     out.currencySource = String(out.currencySource).trim();
   }
 
-  // 1. 先清洗校验实付金额 (actualPricePaid)
+  // 1. Sanitize and validate actual price paid (actualPricePaid) first
   if (out.actualPricePaid !== undefined && out.actualPricePaid !== null && out.actualPricePaid !== '') {
     const num = Number(out.actualPricePaid);
     if (Number.isFinite(num) && num >= 0) {
@@ -84,9 +84,9 @@ function sanitizeAccountPlanEntry(entry, accountKey = 'default') {
     out.actualPricePaid = null;
   }
 
-  // 2. 校验价格模式 (priceMode)
+  // 2. Validate price mode (priceMode)
   if (out.priceMode === 'custom' || out.priceMode === 'preset') {
-    // 保持用户显式模式
+    // Preserve user's explicit mode
   } else if (out.priceSource === 'preset_region') {
     out.priceMode = 'preset';
   } else if (out.actualPricePaid !== null) {
@@ -179,7 +179,7 @@ function loadCustomPlanSettings(overridePathOrDir) {
     try {
       raw = JSON.parse(content);
     } catch (parseErr) {
-      // 配置文件损坏时自动隔离备份并恢复默认结构，防止崩溃
+      // Automatically quarantine/back up corrupted config files and restore default structure to prevent crashes
       try {
         const bakCorrupt = p.replace(/\.json$/i, '') + '.corrupt.bak.json';
         fs.copyFileSync(p, bakCorrupt);
@@ -191,7 +191,7 @@ function loadCustomPlanSettings(overridePathOrDir) {
     }
 
     const accounts = {};
-    // 兼容旧版直接平铺在顶层的配置结构
+    // Backward-compatible with legacy flat top-level config structure
     if (!raw.accounts && (raw.region || raw.subscriptionRegion || raw.country || raw.currency || raw.actualPricePaid !== undefined)) {
       const legacyEntry = sanitizeAccountPlanEntry(raw, raw.email || raw.account || 'default');
       if (legacyEntry) {
@@ -211,7 +211,7 @@ function loadCustomPlanSettings(overridePathOrDir) {
       : {};
     const contextPreferences = sanitizeContextPreferencesMap(raw.contextPreferences);
 
-    // 默认使用统一模式，但升级时若已保存非默认模型偏好则保留分别模式，不覆盖用户选择
+    // Default to unified mode, but on upgrade preserve per-model mode if non-default model preferences were saved without overwriting user choice
     let contextScopeMode = 'unified';
     if (raw.contextScopeMode === 'per_model' || raw.contextScopeMode === 'unified') {
       contextScopeMode = raw.contextScopeMode;
@@ -265,7 +265,7 @@ function setCustomPlanForAccount(accountKey, customData = {}, overridePathOrDir)
   }, key);
   if (!merged) return false;
   settings.accounts[key] = merged;
-  // 同步 default 槽位与最近活跃账号，供启动早期尚未取得邮箱时读取
+  // Sync default slot and last active account for early startup reads before email is available
   settings.accounts['default'] = {
     ...(settings.accounts['default'] || {}),
     ...merged,
@@ -292,10 +292,10 @@ function resolveAccountCustomPlan(customSettingsAll, currentAccountKey) {
   if (currentAccountKey) {
     const k = String(currentAccountKey).trim().toLowerCase();
     if (accMap[k]) return accMap[k];
-    // 账号隔离：明确指定了账号（非 default），但在配置中不存在该账号记录时，绝不回退到 default 或 lastAccount
+    // Account isolation: when an explicit account (non-default) is specified but has no entry in config, never fall back to default or lastAccount
     if (k !== 'default') return null;
   }
-  // 仅在未指定账号（启动早期）或明确是 default 时，才允许检查 lastAccount 或 default
+  // Only allow checking lastAccount or default when no account is specified (early startup) or when explicitly 'default'
   if (!currentAccountKey || currentAccountKey === 'default') {
     if (customSettingsAll.lastAccount && accMap[customSettingsAll.lastAccount]) {
       return accMap[customSettingsAll.lastAccount];
@@ -344,7 +344,7 @@ function savePluginSettings(payload = {}, options = {}) {
       settings.lastAccount = 'default';
     }
   } else if (payload.customPlan && typeof payload.customPlan === 'object') {
-    // 账号隔离约束：新账号独立初始化，禁止从默认配置继承以避免跨账号数据污染
+    // Account isolation constraint: initialize new accounts independently; prohibit inheriting from default config to prevent cross-account data pollution
     const prev = settings.accounts[key] || {};
     const inputPlan = payload.customPlan;
     const mergedRaw = {
@@ -354,7 +354,7 @@ function savePluginSettings(payload = {}, options = {}) {
       updatedAt: new Date().toISOString()
     };
 
-    // 兼容层双向同步：若更新了兼容字段（如 currency），同步更新规范字段，防止被 prev 中的旧规范字段覆盖
+    // Two-way compatibility sync: if a legacy alias field (e.g., currency) is updated, update the canonical field as well so it isn't overwritten by prev's old canonical field
     if (inputPlan.currency && !inputPlan.subscriptionCurrency) {
       mergedRaw.subscriptionCurrency = inputPlan.currency;
     }
@@ -375,7 +375,7 @@ function savePluginSettings(payload = {}, options = {}) {
       mergedRaw.region = inputPlan.subscriptionCountry;
     }
 
-    // 传入 null 或空字符串时，从合并对象中删除对应字段
+    // Delete the corresponding field from the merged object when null or empty string is passed
     if (inputPlan.country === null || inputPlan.country === '' || inputPlan.accountRegion === null || inputPlan.accountRegion === '') {
       delete mergedRaw.country;
       delete mergedRaw.accountRegion;
@@ -531,7 +531,7 @@ function savePluginSettings(payload = {}, options = {}) {
     currentEmail: key === 'default' ? (baseLive?.email || null) : key
   });
 
-  // 同步更新内存缓存与 v2 归档中的 planStatus，确保刷新或重启即刻一致
+  // Synchronously update planStatus in both the in-memory cache and v2 archive for immediate consistency on refresh or restart
   if (!targetDir && cachedTokenHistory) {
     cachedTokenHistory.planStatus = effectivePlanStatus;
     cachedTokenHistory.customPlanSettings = activeCustom;

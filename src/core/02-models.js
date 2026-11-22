@@ -11,7 +11,7 @@
     if (str.includes('3.8-flash') || str.includes('3.8 flash') || str.includes('flash-n')) return 'gemini-3.8-flash';
     if (str.includes('4-neon') || str.includes('4 neon') || str.includes('neon')) return 'gemini-4-neon';
     if (str.includes('4-hydrogen') || str.includes('4 hydrogen') || str.includes('hydrogen')) return 'gemini-4-hydrogen';
-    // 注：2.32.1 客户端已将 gemini-pro-orchestrator 明确归为 Orchestrator (Argon)，仅明确的 carbon / m670 归为 gemini-4-carbon；未知 orchestrator 后缀保持未计价
+    // Note: client 2.32.1 maps gemini-pro-orchestrator to Orchestrator (Argon) and only explicit carbon / m670 to gemini-4-carbon; unknown orchestrator suffixes remain unpriced
     if (str.includes('4-carbon') || str.includes('4 carbon') || str.includes('carbon') || str.includes('m670')) return 'gemini-4-carbon';
     if (str.includes('4-argon') || str.includes('4 argon') || str.includes('argon') || /\bgemini-pro-orchestrator(?:-(?:argon|g1(?:-pro)?))?$/.test(str) || str.includes('m668')) return 'gemini-4-argon';
     if (str.includes('3.1-pro') || str.includes('3.1 pro')) return 'gemini-3.1-pro-preview';
@@ -24,8 +24,8 @@
   }
 
   /**
-   * 解析准确模型标识用于按模型保存上下文偏好（不做计费家族归一化）
-   * 优先级：精确 ID 字段 -> cascadeModelConfigs 精确 ID 匹配 -> 仅在无准确 ID 时按唯一 label 反查 -> 规范化原始标识
+   * Resolve exact model identifier for per-model context preferences (without billing-family normalization).
+   * Priority: exact ID field -> cascadeModelConfigs exact ID match -> unique label lookup only when no exact ID -> normalized raw identifier
    */
   function resolveStableModelId(input, cascadeModelConfigs = []) {
     let idCandidates = [];
@@ -56,7 +56,7 @@
         if (typeof val !== 'string') continue;
         const t = val.trim();
         if (!t || seenId.has(t)) continue;
-        // summarize 结果里的 model 可能是纯显示名（与 modelDisplayName 相同），此时不应挤占准确 ID
+        // The model field in summarize results may be a display name (same as modelDisplayName); do not let it override an exact ID
         if (val === cm.model && displaySet.has(t) && (cm.modelId || cm.modelRaw || cm.modelOrAlias?.model)) {
           continue;
         }
@@ -72,7 +72,7 @@
       const alias = String(cfg?.modelOrAlias?.model || '').trim();
       const mId = String(cfg?.modelId || '').trim();
       if (alias && mId) {
-        // 若同一 alias 被多个不同 modelId（如 low/high 档位）共用，则以具体 modelId 区分档位；否则优先 alias
+        // If the same alias is shared by multiple modelIds (e.g. low/high effort tiers), use the concrete modelId to distinguish tiers; otherwise prefer alias
         const sameAliasCount = cascadeModelConfigs.filter(
           x => String(x?.modelOrAlias?.model || '').trim().toLowerCase() === alias.toLowerCase()
         ).length;
@@ -85,7 +85,7 @@
     const stripModelPrefix = (v) => String(v || '').trim().toLowerCase().replace(/^model_/, '');
 
     if (Array.isArray(cascadeModelConfigs) && cascadeModelConfigs.length) {
-      // 1. 优先按准确 ID 精确匹配（兼容 Protobuf MODEL_ 前缀，绝不受 label 文本影响）
+      // 1. Prefer exact match by ID (supports Protobuf MODEL_ prefix, never affected by label text)
       for (const cand of idCandidates) {
         const candLower = cand.toLowerCase();
         const candStripped = stripModelPrefix(cand);
@@ -102,7 +102,7 @@
         }
       }
 
-      // 2. 仅当没有任何可独立识别的准确 ID 时，才允许按唯一 label 反查
+      // 2. Only fall back to unique label lookup when no independently identifiable exact ID is available
       const hasDistinctId = idCandidates.some(id => !labelCandidates.includes(id));
       if (!hasDistinctId) {
         for (const lblCand of labelCandidates) {
@@ -121,9 +121,9 @@
     return chosen || null;
   }
 
-  // 力度档位白名单（按长度降序排列，防止 Extra High / XHigh 被部分匹配为 High/Extra）
+  // Effort tier allowlist (sorted by descending length so Extra High / XHigh are not partially matched as High/Extra)
   const EFFORT_WHITELIST = ['Extra High', 'XHigh', 'Low', 'Medium', 'High', 'Extra', 'Minimal', 'Max'];
-  // 预编译档位解析正则，避免 groupModelProduct 高频调用时重复编译 RegExp
+  // Precompiled effort-parsing regexes to avoid repeated RegExp compilation on hot groupModelProduct calls
   const EFFORT_REGEX_PARTS = EFFORT_WHITELIST.map(e => e.replace(/\s+/g, '\\s+')).join('|');
   const EFFORT_PAREN_RE = new RegExp(`^(.+?)\\s*[\\(（](${EFFORT_REGEX_PARTS})[\\)）]\\s*$`, 'i');
   const EFFORT_SUFFIX_RE = new RegExp(`^(.+?)\\s+(${EFFORT_REGEX_PARTS})\\s*$`, 'i');
@@ -156,8 +156,8 @@
   }
 
   /**
-   * 拆分模型展示名与尾部重复档位括号，确保产品名与思考档位分离且不重复拼接。
-   * 例如 "Gemini 4 Hydrogen (High) (High)" -> { baseLabel: "Gemini 4 Hydrogen", effort: "High" }
+   * Split model display name from trailing duplicate effort parentheses so product name and reasoning effort stay separate without duplication.
+   * Example: "Gemini 4 Hydrogen (High) (High)" -> { baseLabel: "Gemini 4 Hydrogen", effort: "High" }
    */
   function splitModelDisplayAndEffort(displayText, explicitEffort = null) {
     let baseLabel = String(displayText || '').trim();
@@ -184,9 +184,9 @@
   }
 
   /**
-   * 核对 MODEL_PLACEHOLDER_* 原始 ID 与客户端配置/可用模型表的可靠映射关系：
-   * 分别输出 rawPlaceholderId、stableModelId、displayName 与 effort；
-   * 严禁把未映射的原始占位 ID 直接冒充为已验证的实际路由模型。
+   * Verify reliable mapping between raw MODEL_PLACEHOLDER_* IDs and client config / available model tables:
+   * outputs rawPlaceholderId, stableModelId, displayName, and effort;
+   * never treat an unmapped raw placeholder ID as a verified routed model.
    */
   function resolvePlaceholderModelInfo(rawInput, cascadeModelConfigs = [], availableModels = null) {
     const rawStr = typeof rawInput === 'string'
@@ -272,9 +272,9 @@
   }
 
   /**
-   * 档位展示映射：默认/英文返回标准英文名（如 Extra High），中文面板按繁简返回对照标签
-   * @param {string} effort 原始力度值
-   * @param {string} [lang='en'] 语言代码（'en' | 'zh-CN' | 'zh-TW'）
+   * Effort display mapping: returns standard English name by default/en (e.g. Extra High), or localized labels for zh-CN / zh-TW
+   * @param {string} effort Raw effort value
+   * @param {string} [lang='en'] Language code ('en' | 'zh-CN' | 'zh-TW')
    */
   function formatEffortLabel(effort, lang = 'en') {
     if (!effort) return '';
@@ -291,7 +291,7 @@
   }
 
   /**
-   * 按名称或准确 ID 前缀识别厂商（不使用模糊子串匹配）
+   * Identify vendor by name or exact ID prefix (no fuzzy substring matching)
    */
   function detectModelVendor(productLabel, modelId) {
     const candidates = [productLabel, modelId]
@@ -309,9 +309,9 @@
   }
 
   /**
-   * 模型产品分组纯函数：
-   * 将同一产品的不同力度档位归为同一个 productKey；
-   * Carbon/Argon 等产品后缀、版本号与代际保持独立，不进行模糊合并。
+   * Pure function to group model products:
+   * groups different effort tiers of the same product under one productKey;
+   * preserves distinct product suffixes (e.g. Carbon/Argon), versions, and generations without fuzzy merging.
    */
   function groupModelProduct(config) {
     const obj = (config && typeof config === 'object') ? config : { label: typeof config === 'string' ? config : '' };
@@ -323,7 +323,7 @@
     let effort = explicitEffort;
     let productLabel = rawLabel;
 
-    // 仅当末尾括号（半角或全角）或后缀属于白名单档位词时才拆分为 effort（复用模块级预编译正则）
+    // Split into effort only when trailing parentheses (half- or full-width) or suffix match an allowlisted effort term (reusing module-level precompiled regexes)
     const parenRe = EFFORT_PAREN_RE;
     const suffixRe = EFFORT_SUFFIX_RE;
 
@@ -374,7 +374,7 @@
   }
 
   /**
-   * 1000 进制 K 换算格式化，全项目统一口径（如 512000 -> 512K, 786432 -> 786.4K）
+   * Base-1000 K formatting, unified across the project (e.g. 512000 -> 512K, 786432 -> 786.4K)
    */
   function formatTokensK(v) {
     if (v == null || !Number.isFinite(Number(v))) return '—';
@@ -385,7 +385,7 @@
   }
 
   /**
-   * 判定单条记录是否为有效的实测速度样本
+   * Determine whether a single record is a valid measured speed sample
    */
   function isValidSpeedSample(call) {
     if (!call || typeof call !== 'object') return false;
@@ -411,7 +411,7 @@
   const MAX_SPEED_SAMPLES_PER_MODEL = 200;
 
   /**
-   * 按准确模型 ID（含档位）汇总速度对比统计（中位数、样本数、时间范围与折线序列）
+   * Aggregate speed comparison stats (median, sample count, time range, and series) by exact model ID (including effort tier)
    */
   function summarizeSpeedByModel(calls, options = {}) {
     const days = options.days;
@@ -482,7 +482,7 @@
 
     const result = [];
     for (const g of groups.values()) {
-      // 按时间降序截断保留最近 200 条
+      // Sort descending by time and keep the latest 200 entries
       g.records.sort((a, b) => b.ts - a.ts);
       const recent = g.records.slice(0, MAX_SPEED_SAMPLES_PER_MODEL);
       if (!recent.length) continue;
@@ -499,7 +499,7 @@
       const minTs = tsList.length ? Math.min(...tsList) : null;
       const maxTs = tsList.length ? Math.max(...tsList) : null;
 
-      // 折线图使用时间升序排列
+      // Sort ascending by time for line chart rendering
       const samples = recent.slice().sort((a, b) => a.ts - b.ts);
 
       result.push({

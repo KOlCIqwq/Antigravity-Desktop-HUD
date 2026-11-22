@@ -129,7 +129,7 @@ function resolvePython() {
 }
 
 /**
- * 规范化模型标识符（小写且去掉 proto 常见 MODEL_ 前缀）
+ * Normalize model identifier (lowercase and strip common proto MODEL_ prefix)
  * @param {string} raw
  * @returns {string}
  */
@@ -139,7 +139,7 @@ function normalizeModelKeyForCap(raw) {
 }
 
 /**
- * 读取正整数能力数值；非正数或非法值统一返回 null
+ * Read positive integer capability value; return null for non-positive or invalid values
  * @param {unknown} v
  * @returns {number|null}
  */
@@ -150,7 +150,7 @@ function toPositiveIntOrNull(v) {
 }
 
 /**
- * 读取非负整数能力数值（如 minThinkingBudget/maxOutputTokens 为 0）
+ * Read non-negative integer capability value (e.g., minThinkingBudget/maxOutputTokens = 0)
  * @param {unknown} v
  * @returns {number|null}
  */
@@ -161,8 +161,8 @@ function toNonNegativeIntOrNull(v) {
 }
 
 /**
- * 解析 LanguageServerService.GetAvailableModels 响应为安全能力映射表
- * 仅提取数值/枚举/标签元数据，绝不保留敏感或无关负载
+ * Parse LanguageServerService.GetAvailableModels response into a safe capability map
+ * Extracts only numeric/enum/tag metadata; never retains sensitive or unrelated payloads
  * @param {object|null|undefined} raw
  * @returns {Record<string, object>}
  */
@@ -208,8 +208,8 @@ function parseAvailableModelsResponse(raw) {
 }
 
 /**
- * 从会话 steps[].metadata.modelInfo 中提取实测上报的模型能力元数据
- * 严格隐私边界：仅提取 ModelInfo 数值与枚举标识，绝不读取/存储任何用户消息文本或令牌
+ * Extract observed model capability metadata from session steps[].metadata.modelInfo
+ * Strict privacy boundary: extracts only ModelInfo numbers and enum IDs, never reads/stores user message text or tokens
  * @param {Array<object>} steps
  * @returns {Record<string, object>}
  */
@@ -243,8 +243,8 @@ function extractObservedModelInfoFromSteps(steps) {
 }
 
 /**
- * 将 GetAvailableModels 与 Step.metadata.modelInfo 的能力字段安全合并到 cascadeModelConfigs
- * 不做按模型名称猜上限；缺失能力保持 null
+ * Safely merge capability fields from GetAvailableModels and Step.metadata.modelInfo into cascadeModelConfigs
+ * Never guess limits by model name; missing capabilities remain null
  */
 function mergeModelCapabilitiesIntoConfigs(configs, availableMap = null, stepCapsMap = null) {
   const list = Array.isArray(configs) ? configs.slice() : [];

@@ -2,7 +2,7 @@
   'use strict';
   if ((location.protocol !== 'https:' && location.protocol !== 'http:') || location.hostname !== '127.0.0.1') return;
 
-  // 在替换或重载旧实例之前捕获当前打开面板、滚动位置与未保存设置草稿（同时兼容无 captureHotReloadState 的旧版本）
+  // Capture currently open panels, scroll positions, and unsaved settings drafts before replacing or reloading the old instance (compatible with older versions without captureHotReloadState)
   let inheritedHotReloadState = null;
   try {
     if (typeof globalThis.__AGContextMeter?.captureHotReloadState === 'function') {
@@ -65,7 +65,7 @@
     try { fn(); } catch { }
   }
   activeDisposers.clear();
-  // 清理此前初始化异常或重复挂载遗留的孤儿宿主容器，保证页面内永远仅有唯一实例
+  // Clean up orphan host containers left by prior init errors or duplicate mounts to ensure only one instance exists on the page
   try {
     if (typeof document.querySelectorAll === 'function') {
       document.querySelectorAll('#ag-context-meter').forEach(node => {
@@ -75,7 +75,7 @@
             node.remove?.();
             return;
           }
-          // 无主历史闭包节点：剥离 ID、隐藏且清空 shadowRoot 内容，保持其在位静默不再触发重插循环
+          // Orphaned legacy closure node: strip ID, hide, and clear shadowRoot content so it stays silent in place without re-triggering mount loops
           node.removeAttribute?.('id');
           node.setAttribute?.('data-ag-retired', '1');
           if (node.style) {
@@ -127,7 +127,7 @@
   host.setAttribute('data-window-active', 'true');
   const shadow = host.attachShadow({ mode: 'open' });
 
-  // Antigravity 本地真实 Token 统计基准数据（纯净初始状态，启动时由宿主实时扫描本地实际账本注入）
+  // Antigravity real local token stats baseline (clean initial state; populated at startup by host scanning local ledger)
   const ANTIGRAVITY_TOKEN_DATA = {
     updatedAt: "",
     firstUseDate: null,
@@ -169,7 +169,7 @@
     if (v >= 1000) return `${parseFloat((v / 1000).toFixed(1))}K`;
     return fmt(v);
   };
-  // 悬停信息气泡专用紧凑计数格式（如 37k、475k、1.05M）
+  // Compact count format for hover info tooltips (e.g. 37k, 475k, 1.05M)
   const fmtBubbleToken = v => {
     if (v == null) return t('common.unknown');
     if (v >= 1e9) return `${parseFloat((v / 1e9).toFixed(2))}B`;
@@ -391,7 +391,7 @@
   }
 
   /**
-   * 获取当前有效设备像素比，用于跨屏混合 DPI 下的物理像素网格对齐
+   * Get the current effective devicePixelRatio for physical pixel grid alignment under mixed multi-display DPI.
    */
   function getEffectiveDpr() {
     try {
@@ -403,7 +403,7 @@
   }
 
   /**
-   * 将 CSS 逻辑坐标对齐到最近的物理设备像素边界，防止 100%/175% 混合缩放下出现亚像素偏移发虚
+   * Snap CSS logical coordinates to the nearest physical device pixel boundary to prevent subpixel blur under 100%/175% mixed scaling.
    */
   function snapToDevicePixel(px) {
     const num = Number(px);
@@ -414,7 +414,7 @@
 
   /* @INSERT_COLORS_MODULE */
   // =========================================================================
-  // 模块 2: 宿主布局挂载、右上角原生窗口控制区预留、渐进式宽度收缩与悬浮层定位
+  // Module 2: Host layout mounting, top-right native window control reservation, progressive width shrinking, and popover positioning
   // =========================================================================
   let resizeObserver = null;
   let hostDomObserver = null;
@@ -481,19 +481,19 @@
     const isAtTop = hasTopClass || hasTopStyle || (rectTop <= 10 && rectTop >= 0);
     if (!isAtTop) return false;
 
-    // 排除明显非顶栏容器（右侧全高抽屉、全屏浮层或带有明确非零高度下沉定位的浮层）
+    // Exclude obvious non-topbar containers (full-height right drawers, fullscreen overlays, or overlays with explicit non-zero top offset)
     if (classList.contains('bottom-0') || classList.contains('h-screen') || classList.contains('h-full')) {
       return false;
     }
 
-    // 排除右侧滚动条滑槽（特征：包含 top-0.5 / bottom-0.5 / w-3 等滚动条特征）
+    // Exclude right-side scrollbar tracks (characterized by top-0.5 / bottom-0.5 / w-3 etc.)
     if (classList.contains('w-3') || classList.contains('right-0.5')) {
       return false;
     }
 
-    // 必须符合顶栏控制按钮容器特征：
-    // a) 包含右侧栏切换按钮
-    // b) 或包含 z-50 并具有 flex / items-center 水平布局
+    // Must match topbar control container characteristics:
+    // a) Contains the right-sidebar toggle button
+    // b) Or contains z-50 with flex / items-center horizontal layout
     const hasAuxToggle = Boolean(el.querySelector && el.querySelector('[data-testid="toggle-aux-sidebar"]'));
     const hasToolbarLayout = classList.contains('z-50') && (classList.contains('items-center') || classList.contains('flex'));
 
@@ -503,19 +503,19 @@
   function findTopRightCluster() {
     try {
       if (typeof document.querySelector !== 'function') return null;
-      // 1. 优先从右侧栏切换按钮向上寻找最近的顶栏容器
+      // 1. Prefer finding the nearest topbar container upward from the right-sidebar toggle button
       const auxToggle = document.querySelector('[data-testid="toggle-aux-sidebar"]');
       if (auxToggle?.closest) {
-        // 先尝试带 top-0 的经典结构（Antigravity 1.x）
+        // First try the classic structure with top-0 (Antigravity 1.x)
         let cluster = auxToggle.closest('div.absolute.right-0.top-0');
         if (cluster && isTopRightToolbarCluster(cluster)) return cluster;
-        // 兼容 Antigravity 2.x（top: 0px 写在内联 style，class 无 top-0）
+        // Compatible with Antigravity 2.x (top: 0px in inline style, no top-0 class)
         cluster = auxToggle.closest('div.absolute.right-0');
         if (cluster && isTopRightToolbarCluster(cluster)) return cluster;
       }
 
-      // 2. 备用安全探测：当 auxToggle 尚未挂载或被动态卸载时，精确匹配顶栏容器
-      // 严格检查顶部坐标与容器特征，绝不误伤滚动条、侧栏抽屉或模态弹窗
+      // 2. Fallback safe probe: when auxToggle is not yet mounted or dynamically unmounted, match topbar container precisely
+      // Strictly check top coordinates and container traits; never mistakenly match scrollbars, side drawers, or modals
       const selectors = [
         'div.h-screen.w-screen > div.flex-1 > div.absolute.right-0.top-0.z-50',
         'div.h-screen.w-screen > div.flex-1 > div.absolute.right-0.z-50',
@@ -531,7 +531,7 @@
     }
   }
 
-  // 动态计算右上角原生窗口控制区（Minimize / Maximize / Close）独占宽度（CSS px）
+  // Dynamically compute exclusive width (CSS px) of top-right native window controls (Minimize / Maximize / Close)
   function computeWindowControlsWidth(topRight) {
     if (!topRight) return 0;
     try {
@@ -539,11 +539,11 @@
       if (/^Mac|iPhone|iPad/i.test(plat)) return 0;
       if (topRight?.getBoundingClientRect) {
         const tr = topRight.getBoundingClientRect();
-        // 若顶部已单独渲染菜单栏（top >= 20），则 40px 工具栏不在窗口顶边，无需重复留白
+        // If a separate menu bar is rendered at top (top >= 20), the 40px toolbar is not at the window top edge, so no extra padding is needed
         if (tr.height > 0 && tr.top >= 20) return 0;
       }
       const vw = (typeof window !== 'undefined' && window.innerWidth) || 0;
-      // 优先 1: 标准 WCO 接口 navigator.windowControlsOverlay
+      // Priority 1: Standard WCO API navigator.windowControlsOverlay
       const wco = typeof navigator !== 'undefined' ? navigator.windowControlsOverlay : null;
       if (wco?.visible && typeof wco.getTitlebarAreaRect === 'function') {
         const rect = wco.getTitlebarAreaRect();
@@ -551,7 +551,7 @@
           return Math.max(0, Math.ceil(vw - rect.right));
         }
       }
-      // 优先 2: 根据 Electron titleBarOverlay 几何规格（Windows 3 颗原生控制按钮共 138 OS DIP）与实时缩放比动态换算
+      // Priority 2: Dynamically convert from Electron titleBarOverlay geometry (3 native Windows buttons = 138 OS DIP) and live zoom ratio
       let zoomFactor = 1;
       if (typeof window !== 'undefined') {
         const nativeZoom = window.electronNative?.getZoomLevel?.();
@@ -609,7 +609,7 @@
         }
       }
 
-      // 主对话区顶栏若处于窗口最顶行（无独立菜单栏，top < 20）且靠最右边，需同步避让系统控制按钮及右侧独立浮动簇
+      // If the main chat topbar is at the topmost row (no separate menu bar, top < 20) and flush right, avoid both system control buttons and the right-side floating cluster
       let titlebarWcoPad = 0;
       const titlebar = findHostTitlebar();
       if (titlebar?.getBoundingClientRect) {
@@ -685,7 +685,7 @@
       earlyForceDispose();
       return;
     }
-    // 热路径短路：宿主已稳固停靠在预期标题栏内且尺寸未标脏时，跳过 DOM 遍历与强制布局查询
+    // Hot-path short-circuit: skip DOM traversal and forced layout queries when host is stably docked in the expected titlebar and size is not dirty
     if (
       !layoutMeasurementDirty
       && host.isConnected
@@ -700,7 +700,7 @@
     syncWindowControlsOverlay();
     const titlebar = findHostTitlebar();
     if (titlebar) {
-      // 自愈保护：若主对话区（div.flex[style*="min-width"]）的 inline flex-grow 被意外清空，立即恢复为 1，绝不覆写其他分栏属性
+      // Self-healing guard: if main chat area (div.flex[style*="min-width"]) inline flex-grow is accidentally cleared, restore it to 1 immediately without overwriting other pane attributes
       try {
         const convPane = titlebar.closest?.('div.flex[style*="min-width"]');
         if (convPane?.style && (!convPane.style.flexGrow || convPane.style.flexGrow === '0')) {
@@ -799,12 +799,12 @@
     } catch { }
   }
 
-  // 带迟滞区间（Hysteresis）的四阶段渐进收缩计算，防止临界宽度抖动
+  // Four-stage progressive shrinking with hysteresis to prevent jitter at threshold widths
   function computeNextLayoutMode(availWidth, currentMode) {
-    // 阈值设计：
-    // wide <-> compact: 收缩 < 195px, 恢复 >= 210px
-    // compact <-> minimal: 收缩 < 135px, 恢复 >= 150px
-    // minimal <-> ring-only: 收缩 < 68px, 恢复 >= 82px
+    // Threshold design:
+    // wide <-> compact: shrink < 195px, restore >= 210px
+    // compact <-> minimal: shrink < 135px, restore >= 150px
+    // minimal <-> ring-only: shrink < 68px, restore >= 82px
     if (availWidth == null || Number.isNaN(availWidth)) return 'wide';
     if (currentMode === 'wide') {
       if (availWidth < 68) return 'ring-only';
@@ -981,7 +981,7 @@
     }
   }
 
-  // 定位顶栏圆环悬停气泡：空间足够时优先在锚点上方，顶部空间不足时自动翻转至下方，左右防裁切
+  // Position topbar ring hover tooltip: prefer above anchor when space allows, flip below if top space is tight, prevent horizontal clipping
   function positionBadgeTooltip(tipId, anchorId, fallbackW = 190, fallbackH = 66) {
     const tip = el(tipId);
     const badge = el(anchorId);
@@ -1195,7 +1195,7 @@
         const maxAvailW = Math.max(260, vw - minLeft - 12);
         const finalW = Math.min(effW, maxAvailW);
 
-        // 核心锚点：右侧精确对齐到触发按钮右边缘，并按当前 DPI 物理像素网格对齐
+        // Core anchor: align right edge precisely with trigger button right edge, snapped to current DPI physical pixel grid
         let left = snapToDevicePixel(bRect.right - finalW);
         left = Math.min(left, snapToDevicePixel(vw - finalW - 12));
         left = Math.max(snapToDevicePixel(minLeft), left);
@@ -1262,7 +1262,7 @@
     if (typeof MutationObserver !== 'undefined' && document.body) {
       hostDomObserver = new MutationObserver(() => {
         if (state.disposed) return;
-        // 轻量 O(1) 检查优先，其余全量/选择器查询合并节流至低频窗口，防止聊天吐字与切会话卡顿
+        // Prioritize lightweight O(1) checks; throttle full/selector queries into a low-frequency window to prevent lag during streaming or session switching
         if (!host.isConnected || host.getAttribute('data-dock') !== 'flow') {
           layoutMeasurementDirty = true;
           scheduleLayoutSync();

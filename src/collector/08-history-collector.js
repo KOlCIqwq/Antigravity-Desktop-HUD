@@ -22,8 +22,8 @@ function mergeModelDailyMaps(...maps) {
 }
 
 /**
- * 基于账本（含 RPC 富化模型）与未匹配 transcript 实时记录构建分来源按日按模型用量分布，
- * 并严格对齐 dailyMap 权威总额（未能归属模型的差额落入 UNATTRIBUTED_MODEL_KEY）。
+ * Build per-source, per-day, per-model usage breakdowns from the ledger (including RPC-enriched models) and unmatched live transcript records,
+ * strictly aligning with authoritative dailyMap totals (any unattributed model difference falls into UNATTRIBUTED_MODEL_KEY).
  */
 function buildDailyModelBreakdown(params) {
   const {
@@ -223,7 +223,7 @@ function buildDailyModelBreakdown(params) {
 }
 
 /**
- * 历史用量与账本聚合核心逻辑（支持在 Worker 线程或主线程直接运行）
+ * Core historical usage and ledger aggregation logic (supports running in a Worker thread or directly on the main thread)
  * @param {object} options
  * @param {object} extraContext
  */
@@ -233,7 +233,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
   const archivePathV1 = path.join(agDir, 'token_usage_archive_v1.json');
   const archivePathV2 = path.join(agDir, 'token_usage_archive_v2.json');
 
-  // 1. 读取旧 v1 归档（并在首次迁移时自动生成 .bak 备份）
+  // 1. Read legacy v1 archive (and auto-generate a .bak backup on first migration)
   const bakPathV1 = path.join(agDir, 'token_usage_archive_v1.bak.json');
   const readV1 = safeReadJsonSync(archivePathV1, null, { backupPath: bakPathV1 });
   let legacyV1Archive = { firstUseDate: null, dailyMap: {}, maxConversations: 0 };
@@ -246,7 +246,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     }
   }
 
-  // 2. 读取已有的 v2 归档
+  // 2. Read existing v2 archive
   const bakPathV2 = path.join(agDir, 'token_usage_archive_v2.bak.json');
   const readV2 = safeReadJsonSync(archivePathV2, null, { backupPath: bakPathV2 });
   let archiveV2 = {
@@ -275,7 +275,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     }
   };
 
-  // 3. 扫描桌面端与 CLI 会话文件（含 Windows 异步探测的 WSL 发行版目录，忽略伴生文件并仅对标准 UUID 跨根去重）
+  // 3. Scan desktop and CLI session files (including async-probed WSL distro directories on Windows; ignore companion files and deduplicate across roots only for standard UUIDs)
   const extraWsl = await discoverWslGeminiDirsAsync(options);
   const desktopAgDirs = dedupeScanPaths([
     agDir,
@@ -311,7 +311,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
         if (isUuid) {
           dedupeKey = process.platform === 'win32' ? name.toLowerCase() : name;
         } else {
-          // 非 UUID 会话不仅靠文件名合并，仅在真实路径相同时视作同一个文件，或后续通过共享 responseId 事件确认镜像
+          // Non-UUID sessions are not merged solely by filename; treat as the same file only when realpaths match or when mirrored via shared responseId events
           let realFile = p;
           try { realFile = fs.realpathSync(p); } catch { }
           dedupeKey = process.platform === 'win32' ? realFile.toLowerCase() : realFile;
@@ -346,7 +346,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     cliPbCount += scanSessionDir(path.join(cDir, 'conversations'), 'cli', seenCliConvs);
   }
 
-  // 4. 多目录遍历扫描 transcript.jsonl（跳过 steps/scratch 重型目录，软链接与环路去重）
+  // 4. Multi-directory traversal scanning transcript.jsonl (skipping heavy steps/scratch directories, deduplicating symlinks and cycles)
   const visitedRealDirs = new Set();
   const transcriptJobs = [];
 
@@ -407,7 +407,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     if (fs.existsSync(cbDir)) walkTranscripts(cbDir, 'cli', 0, path.join(cDir, 'conversations'));
   }
 
-  // 5. 结构化 JSON 解析 transcript.jsonl（基于 size+mtimeMs 单文件增量缓存，去重并汇总）
+  // 5. Structured JSON parsing of transcript.jsonl (incremental per-file cache keyed by size+mtimeMs, deduplicated and aggregated)
   const scannedBySource = {
     desktop: {},
     cli: {}
@@ -471,7 +471,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
 
           const tot = inp + outp + cap;
           if (tot > 0) {
-            // 唯一事件标识去重 (避免复制/软链接/重复日志相加)
+            // Deduplicate by unique event ID (prevent double-counting from copies, symlinks, or duplicate logs)
             const cascadeId = String(event.cascadeId || (brainMatch ? brainMatch[1] : path.basename(job.path, '.jsonl')));
             const rawStep = event.step_index ?? event.stepIndex;
             const parsedStep = rawStep !== undefined && rawStep !== null && rawStep !== '' ? Number(rawStep) : NaN;
@@ -519,7 +519,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
 
         const existingReq = seenEvents.get(rec.eventId);
         if (existingReq) {
-          // 跨根重复事件绝不重复累加 Token；仅当新根回填/保留了更优模型标识时就地富化原记录
+          // Never double-count tokens for duplicate events across roots; enrich the original record in place only if the new root provides/retains a better model ID
           if (getCollectorModelRank(rec.model) > getCollectorModelRank(existingReq.model)) {
             existingReq.model = rec.model;
             existingReq.modelKey = normalizeModelId(rec.model);
@@ -529,7 +529,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
           }
           if (!existingReq.modelExactId && rec.modelExactId) existingReq.modelExactId = rec.modelExactId;
           if (!existingReq.modelLabel && rec.modelLabel) existingReq.modelLabel = rec.modelLabel;
-          // 若两个不同 convDir 下的非 UUID 同名会话共享同一真实 responseId（非 step 拼接键），证明是同一镜像会话
+          // If two identically named non-UUID sessions under different convDirs share the same real responseId (not a step-composite key), they are proven to be mirrored sessions
           if (
             !String(rec.eventId).includes('#') &&
             existingReq.source === job.source &&
@@ -597,8 +597,8 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     } catch { }
   }
 
-  // 6. 与旧归档做差异合并，防止简单相加或 Math.max 抹杀 CLI 增量
-  // 规则：若 (desktop + cli) < legacyV1，则把差额保留为 legacyUnallocated；否则认为已被新日志完全覆盖
+  // 6. Diff-merge with legacy archive to prevent naive addition or Math.max from erasing CLI increments
+  // Rule: if (desktop + cli) < legacyV1, preserve the difference as legacyUnallocated; otherwise consider it fully covered by new logs
   const legacyDaily = legacyV1Archive.dailyMap || {};
   const mergedDesktop = { ...(archiveV2.dailyMapBySource?.desktop || {}), ...scannedBySource.desktop };
   const mergedCli = { ...(archiveV2.dailyMapBySource?.cli || {}), ...scannedBySource.cli };
@@ -641,7 +641,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     };
   }
 
-  // 7. 计算各项聚合统计指标
+  // 7. Compute aggregated summary statistics
   const now = new Date();
   const todayKey = formatLocalDateKey(now);
   const monthPrefix = todayKey.slice(0, 7);
@@ -663,7 +663,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     if (k.startsWith(yearPrefix)) yearTokens += v.total || 0;
   }
 
-  // 计算本期（本月自然月）分类汇总与步骤数
+  // Compute current-period (current calendar month) category breakdowns and step counts
   let currentMonthInput = 0, currentMonthOutput = 0, currentMonthCache = 0, currentMonthSteps = 0;
   for (const [k, v] of Object.entries(dailyMapAll)) {
     if (k.startsWith(monthPrefix) && v) {
@@ -680,7 +680,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     desktopPbCount + cliPbCount
   );
 
-  // 8. 自动识别套餐与用户自定义设置合并（实际读取优先于自定义优先于未知）
+  // 8. Merge auto-detected plan with user custom settings (observed values > custom > unknown)
   let livePlanStatus = Object.prototype.hasOwnProperty.call(extraContext, 'livePlanStatus')
     ? extraContext.livePlanStatus
     : await fetchUserStatusFromHost(options);
@@ -697,7 +697,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     currentEmail: currentAccountKey
   });
 
-  // 加载可用于历史补扫归属校验的账号活跃时段（仅在使用默认宿主目录或显式传入时读取，隔离测试不读宿主真实账号）
+  // Load account active sessions for historical backfill attribution verification (read only when using default host dir or explicitly passed; isolated tests do not read real host accounts)
   let sessionWindowsForHistory = Array.isArray(extraContext.accountSessions)
     ? extraContext.accountSessions
     : (Array.isArray(options.accountSessions) ? options.accountSessions : null);
@@ -723,7 +723,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     } catch { }
   }
 
-  // 在任何 transcript 对齐或富化写入覆盖之前，先对未经历最新归属版本校验且带有账号归属的账本执行一次带备份的幂等纠偏
+  // Before any transcript alignment or enrichment overwrite, run a one-time idempotent repair with backup on ledgers that have account attributions not yet verified under the latest repair version
   if (hasRealAccountStore && !options.skipAutoRepair && (!options.fs || options.fs === fs)) {
     try {
       const preRepairCalls = (loadPricingLedger(agDir).calls || {});
@@ -743,7 +743,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     } catch { }
   }
 
-  // 结合持久化逐请求账本与本次扫描调用：先与既有账本做双阶段 1-to-1 对齐与富化，再仅将未匹配的已计价扫描请求落盘
+  // Combine persisted per-request ledger with calls from this scan: first perform two-phase 1-to-1 alignment and enrichment against existing ledger entries, then flush only unmatched priced scan requests to disk
   const initialCallsMap = loadPricingLedger(agDir).calls || {};
   const matchedTranscriptReqs = new Set();
   const matchedLedgerKeys = new Set();
@@ -766,7 +766,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     }
   }
 
-  // 统计每个 (source, cascadeId, stepIndex) 上的非合成账本调用数量，避免同步骤多条独立 responseId 错绑其它调用的用量
+  // Count non-synthetic ledger calls per (source, cascadeId, stepIndex) to avoid misbinding usage from another independent responseId in the same step
   const realLedgerCountByStepKey = new Map();
   for (const [ledgerKey, c] of Object.entries(initialCallsMap)) {
     if (!c || !c.cascadeId) continue;
@@ -791,7 +791,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     return null;
   };
 
-  // 严格规则：仅允许“合成键 <-> 真实 ID”（或合成键之间）通过 stepIndex / 用量指纹兜底关联，严禁两条不同真实 ID 跨绑
+  // Strict rule: only allow "synthetic key <-> real ID" (or synthetic-to-synthetic) fallback matching via stepIndex / usage fingerprint; never cross-bind two different real IDs
   const canFallbackLink = (ledgerKey, c, cidKey, reqItem) => {
     const cIsFallback = isStepFallbackCallId(ledgerKey, c.cascadeId) || isStepFallbackCallId(cidKey, c.cascadeId);
     const rId = String(reqItem.callId || '');
@@ -836,7 +836,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     }
   };
 
-  // Pass 1A: 优先在全量账本记录上完成精确 callId 对齐，避免同键记录被其它同步骤记录抢先消费
+  // Pass 1A: Complete exact callId alignment across all ledger records first so same-key records are not prematurely consumed by other same-step records
   const unmatchedAfterExactId = [];
   for (const [ledgerKey, c] of Object.entries(initialCallsMap)) {
     if (!c) continue;
@@ -852,7 +852,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     }
   }
 
-  // Pass 1B: 跨键 stepIndex 对齐（施加充分证据门禁：两条均含模型且用量不同的最终态调用绝不跨键误合并）
+  // Pass 1B: Cross-key stepIndex alignment (enforce sufficient-evidence gate: two finalized calls that both have models and different usage must never be cross-key merged)
   const unmatchedLedgerPass2 = [];
   for (const [ledgerKey, c] of unmatchedAfterExactId) {
     const cidKey = String(c.callId || ledgerKey);
@@ -893,7 +893,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     }
   }
 
-  // Pass 2: 兼容尚未记录 stepIndex 的历史账本条目，按同会话精确非零用量指纹 + 兼容模型双边唯一（1-to-1）匹配
+  // Pass 2: Support historical ledger entries without stepIndex by bidirectional unique (1-to-1) matching on same-session exact non-zero usage fingerprint + compatible model
   if (unmatchedLedgerPass2.length) {
     const reqsByUsageKey = new Map();
     for (const r of recentRequests) {
@@ -947,7 +947,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     }
   }
 
-  // 向账本写入既有记录的富化更新（补齐 model / 最新完整用量 / stepIndex）以及未匹配的已计价扫描调用
+  // Write enrichment updates for existing records (backfilling model / latest full usage / stepIndex) and unmatched priced scan calls to the ledger
   const unmatchedPricedTranscriptReqs = recentRequests.filter(r => !matchedTranscriptReqs.has(r) && r.isPriced && r.callId);
   const ledgerUpdates = [...ledgerEnrichmentCalls, ...unmatchedPricedTranscriptReqs];
   if (ledgerUpdates.length) {
@@ -1039,7 +1039,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     return null;
   };
 
-  // 按来源与日期汇总未匹配任何实时 transcript 的账本调用，用于抵扣 v2 / v1 历史归档中已被账本覆盖的份额
+  // Aggregate ledger calls unmatched to any live transcript by source and date to offset shares already covered by the ledger in v2 / v1 historical archives
   const unmatchedLedgerBySourceDate = new Map();
   for (const [ledgerKey, c] of finalCallsEntries) {
     if (!c || matchedLedgerKeys.has(ledgerKey)) continue;
@@ -1103,7 +1103,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     }
   }
 
-  // 分来源与全量动态统计未被账本覆盖的剩余未计价请求与原因
+  // Dynamically compute remaining unpriced requests and reasons per source and in total not covered by the ledger
   const unmatchedRecentUnpriced = recentRequests.filter(r => !matchedTranscriptReqs.has(r) && !r.isPriced);
   const desktopRecentUnpriced = unmatchedRecentUnpriced.filter(r => r.source === 'desktop');
   const cliRecentUnpriced = unmatchedRecentUnpriced.filter(r => r.source === 'cli');
@@ -1135,7 +1135,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
   const costEstimateDesktop = summarizeApiCost(mergedCalls.filter(c => (c.source || 'desktop') === 'desktop'), deskUnpriced.count, deskUnpriced.reasons, deskUnpriced.tokens);
   const costEstimateCli = summarizeApiCost(mergedCalls.filter(c => c.source === 'cli'), cliUnpriced.count, cliUnpriced.reasons, cliUnpriced.tokens);
 
-  // 本期 (本月自然月) 账本过滤与计价分析（仅追加未被账本覆盖的本月剩余步骤与 v2/v1 遗留差额）
+  // Current-period (current calendar month) ledger filtering and pricing analysis (appending only remaining current-month steps and v2/v1 legacy deltas not covered by the ledger)
   const currentMonthCalls = finalCallsEntries
     .filter(([ledgerKey, c]) => {
       if (!c) return false;
@@ -1152,7 +1152,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     monthUnpriced.tokens
   );
 
-  // 9. 参考模型折算（官方标准价格表 2026-11-08）
+  // 9. Reference model conversion (official standard pricing table 2026-11-08)
   const referenceCostAll = calculateReferenceModelCost({
     inputTokens: totalInputTokens,
     outputTokens: totalOutputTokens,
@@ -1230,8 +1230,8 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     ? livePlanStatus.cascadeModelConfigs.map(sanitizeCascadeModelConfig).filter(Boolean)
     : [];
 
-  // 汇总最近 8 天各共享额度池真实消耗事件（供 5h / weekly 双周期剩余 Token 约数校准使用）
-  // 统计口径：原始 inputTokens + cacheReadTokens + outputTokens 之和；同时计算全历史最小已知调用时间戳以判断周期起点覆盖完整性
+  // Aggregate actual consumption events over the last 8 days per shared quota pool (used for 5h / weekly dual-cycle remaining token estimate calibration)
+  // Counting basis: sum of raw inputTokens + cacheReadTokens + outputTokens; also compute the earliest known call timestamp across all history to assess cycle start coverage completeness
   const quotaNowMs = Date.now();
   const quotaCutoffMs = quotaNowMs - 8 * 86400000;
   const quotaRecentCutoffMs = quotaNowMs - 86400000;
@@ -1464,7 +1464,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     return { out, archiveSig: null, accountKey: currentAccountKey || null, stale: true };
   }
 
-  // 持久化保存到 v2 与 v1 归档（仅在数据变化或文件不存在时原子写入，减少高频磁盘 I/O）
+  // Persist to v2 and v1 archives (atomic write only when data changed or file does not exist, reducing frequent disk I/O)
   const prevArchiveSig = Object.prototype.hasOwnProperty.call(extraContext, 'prevArchiveSig')
     ? extraContext.prevArchiveSig
     : collectTokenHistoryAsync._lastArchiveSig;
@@ -1486,7 +1486,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
       };
       safeWriteJsonSync(archivePathV2, v2Payload);
 
-      // 同时写回 v1 格式以保持向下完全兼容
+      // Also write back in v1 format to maintain full backward compatibility
       const v1Payload = {
         firstUseDate: earliestDate,
         maxConversations: totalConversations,
@@ -1506,7 +1506,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
 }
 
 /**
- * 异步收集历史 Token 用量与成本汇总（优先后台 Worker 线程执行，避免阻塞宿主主进程事件循环）
+ * Asynchronously collect historical token usage and cost summary (preferring a background Worker thread to avoid blocking the host main event loop)
  * @param {object} options
  */
 async function collectTokenHistoryAsync(options = {}) {
@@ -1577,5 +1577,5 @@ async function collectTokenHistoryAsync(options = {}) {
 }
 
 /**
- * 从单个 transcript.jsonl 提取用户轮次标记、模型调用记录与可验证的子代理调用关联。
+ * Extract user turn markers, model call records, and verifiable subagent call associations from a single transcript.jsonl.
  */

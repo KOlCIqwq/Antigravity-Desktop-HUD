@@ -1,7 +1,7 @@
   // =========================================================================
-  // ELV-41 / ELV-43: 官方模型选择器识别与多通道请求拦截注入器
-  // 支持：主世界 LS 客户端装饰器、WebSocket (Lcc JSON)、Fetch/XHR (JSON / Envelope / Protobuf)
-  // 严格过滤 StartCascade，仅拦截 SendUserCascadeMessage；不从面板配置卡猜测模型
+  // ELV-41 / ELV-43: Official model selector detection and multi-channel request interceptor/injector
+  // Supports: main-world LS client decorator, WebSocket (Lcc JSON), Fetch/XHR (JSON / Envelope / Protobuf)
+  // Strictly filter StartCascade and only intercept SendUserCascadeMessage; never guess model from panel config cards
   // =========================================================================
   const CTX_CONFIRM_TIMEOUT_MS = budgetEngine.DEFAULT_CONFIRM_TIMEOUT_MS || 45000;
   const budgetTracker = typeof budgetEngine.createContextBudgetTracker === 'function'
@@ -34,7 +34,7 @@
   }
 
   /**
-   * 仅从宿主真实输入框选择器读取当前选中模型（严格排除插件自身 #ag-context-meter DOM）
+   * Read currently selected model only from the host's real input selector (strictly excluding plugin's own #ag-context-meter DOM)
    */
   function extractHostSelectedModel() {
     if (typeof document === 'undefined') return null;
@@ -200,7 +200,7 @@
     if (typeof window === 'undefined') return;
     if (window.__agRequestInterceptorInstalled) return;
 
-    // 0. 绑定主世界冷启动客户端装饰器回调（序列化前修改真实请求对象）
+    // 0. Bind main-world cold-start client decorator callback (mutate real request object before serialization)
     globalThis.__AG_METER_ON_SEND_MESSAGE__ = function (req, channel = 'client_object') {
       try {
         if (!req || typeof req !== 'object' || typeof budgetEngine.transformOutgoingSendRequest !== 'function') return null;
@@ -235,7 +235,7 @@
       return sameConv && sameMode;
     };
 
-    // 1. WebSocket.prototype.send interceptor (覆盖 Lcc ws://<host>/connect-websocket JSON 帧)
+    // 1. WebSocket.prototype.send interceptor (covers Lcc ws://<host>/connect-websocket JSON frames)
     if (typeof window.WebSocket === 'function' && window.WebSocket.prototype && typeof window.WebSocket.prototype.send === 'function') {
       const origWsSend = window.WebSocket.prototype.send;
       window.__agOrigWsSend = origWsSend;
@@ -266,7 +266,7 @@
       };
     }
 
-    // 2. window.fetch interceptor (仅处理 SendUserCascadeMessage；严禁猜测 StartCascade)
+    // 2. window.fetch interceptor (handle SendUserCascadeMessage only; never guess StartCascade)
     const origFetch = window.fetch;
     if (typeof origFetch === 'function') {
       window.__agOrigFetch = origFetch;
@@ -563,7 +563,7 @@
 
   let cachedKnownProductsSnapshot = null;
 
-  /** 将所有已知模型、当前会话和历史调用按产品维度分组（带签名缓存与调用模型去重，避免每次渲染重复全量分组） */
+  /** Group all known models, current session, and historical calls by product (with signature cache and call-model deduplication to avoid full regrouping on every render) */
   function getKnownModelProducts() {
     const configs = state.cascadeModelConfigs || state.scan?.cascadeModelConfigs || [];
     const speedRecords = ANTIGRAVITY_TOKEN_DATA.speedRecords || [];
@@ -617,7 +617,7 @@
       const keyParts = g.productKey.split(':');
       const keySlug = keyParts.length >= 3 ? keyParts.slice(2).join(':') : '';
       let targetKey = g.productKey;
-      // 若同一产品 slug 在列表里既有明确厂商又有"其他"厂商，合并到明确厂商条目下（不合并不同前缀或代际）
+      // If the same product slug has both an explicit vendor and "Other" vendor in the list, merge under the explicit vendor (do not merge different prefixes or generations)
       if (keySlug && !productMap.has(targetKey) && slugToKey.has(keySlug)) {
         const existingKey = slugToKey.get(keySlug);
         const existingProd = productMap.get(existingKey);
@@ -714,7 +714,7 @@
       }, false);
     }
 
-    // 先按 (modelId, label, effort) 去重，避免成百上千条同模型历史/会话调用重复执行产品分组
+    // Deduplicate by (modelId, label, effort) first so hundreds/thousands of identical model history/session calls don't repeat product grouping
     const seenCallModels = new Set();
     const processCallList = (list) => {
       if (!Array.isArray(list)) return;
@@ -824,7 +824,7 @@
     return t('status.savedShortDefault');
   }
 
-  /** 解析当前产品的设置状态与旧档位迁移/冲突检测 */
+  /** Resolve current product settings state and legacy tier migration/conflict detection */
   function resolveProductPreferenceState(product) {
     if (!product) {
       return { status: 'none', pref: null, displayText: t('status.savedDefault'), shortText: t('status.savedShortDefault'), legacyKeys: [], conflictEntries: [] };
@@ -934,7 +934,7 @@
     return false;
   }
 
-  /** 将状态 strictly 映射为规定的 5 个普通视图标签之一 */
+  /** Strictly map state to one of the 5 standard view labels */
   function mapUnlockDisplayStatus(data) {
     if (unlockStatusFetchError) {
       return { badge: t('status.badge.unavailable'), pillClass: 'pill-danger', effectiveLoaded: false };
@@ -1011,7 +1011,7 @@
         void refreshUnlockStatus();
       }
     } else if (tabName === 'speed') {
-      // 速度对比页只读取已有本地记录，绝不发起任何请求或 IPC
+      // Speed comparison tab only reads existing local records; never initiates any request or IPC
       renderSpeedComparisonTab();
     } else if (tabName === 'settings') {
       void refreshModulesDisplay();
@@ -1132,7 +1132,7 @@
   let quotaStateInitialized = false;
 
   /**
-   * 安全获取额度视图（防止初始化阶段提前触发时出现 TDZ 异常）。
+   * Safely get quota view (prevents TDZ errors if triggered early during initialization).
    */
   function getSafeQuotaViewForModelList(nowMs = Date.now()) {
     if (!quotaStateInitialized || typeof computeEffectiveQuotaView !== 'function') return null;
@@ -1144,7 +1144,7 @@
   }
 
   /**
-   * 兼容浏览器与精简测试环境的 SVG 节点创建函数。
+   * SVG node creator compatible with both browser and lightweight test environments.
    */
   function createQuotaSvgEl(tag) {
     if (typeof document === 'undefined') return null;
@@ -1156,7 +1156,7 @@
 
 
   /**
-   * 将模型产品对象映射到共享额度池并生成小圆环展示摘要。
+   * Map a model product object to its shared quota pool and generate a mini-ring display summary.
    */
   function resolveProductQuotaSummary(product, quotaView = null, nowMs = Date.now()) {
     const core = typeof __AGContextMeterCore !== 'undefined'
@@ -1195,7 +1195,7 @@
     let matchedModel = null;
     const isHistoryOnly = Boolean(product.isHistorical || !product.inAccountCatalog);
 
-    // 1. 优先通过 productKey / modelIds / aliases 精确命中账号额度池模型（仅历史记录模型不借用当前活跃额度池）
+    // 1. Prefer exact match to account quota pool model via productKey / modelIds / aliases (history-only models do not borrow current active quota pool)
     if (!isHistoryOnly) {
       for (const pool of pools) {
         for (const m of (pool.models || [])) {
@@ -1217,7 +1217,7 @@
         if (matchedPool) break;
       }
 
-      // 2. 次级按共享额度池键归并当前账号目录内的模型
+      // 2. Secondary: group models in current account catalog by shared quota pool key
       if (!matchedPool && core?.getSharedQuotaGroupKey) {
         const probeInput = {
           modelId: membersList[0]?.modelId || product.productKey,
@@ -1303,7 +1303,7 @@
   }
 
   /**
-   * 更新小额度圆环芯片的圆弧进度、语义状态、数值文本与悬浮说明。
+   * Update mini quota ring chip arc progress, semantic status, value text, and tooltip.
    */
   function updateMiniQuotaChipElement(chip, summary) {
     if (!chip || !summary) return;
@@ -1338,7 +1338,7 @@
   }
 
   /**
-   * 创建贴近原生 UI 的小额度圆环进度与状态芯片节点。
+   * Create native-styled mini quota ring progress and status chip node.
    */
   function createMiniQuotaChipElement(summary, opts = {}) {
     const chip = document.createElement('span');
@@ -1385,7 +1385,7 @@
   }
 
   /**
-   * 原地同步模型列表、下拉选择器与选中模型卡片中的小额度圆环状态，避免重建闪烁。
+   * Sync mini quota ring states in-place across model list, dropdown selector, and selected model card to avoid rebuild flicker.
    */
   function syncModelListQuotaIndicators(quotaView = null, nowMs = Date.now(), force = false) {
     const view = quotaView || getSafeQuotaViewForModelList(nowMs);
@@ -2160,7 +2160,7 @@
       }
     }
 
-    // 旧档位冲突横幅
+    // Legacy tier conflict banner
     if (ctxConflictBanner && ctxConflictRows) {
       if (pState.status === 'conflict' && pState.conflictEntries.length > 0) {
         ctxConflictBanner.hidden = false;
@@ -2201,7 +2201,7 @@
       }
     }
 
-    // 0. 模型能力参考卡片渲染（紧邻预算设置区，不隐藏；严格区分模型上限 / 客户端限制 / 运行策略默认预算 / 可采纳范围）
+    // 0. Render model capability reference card (adjacent to budget settings, never hidden; strictly distinguishes model cap / client limit / runtime policy default budget / adoptable range)
     const capSummary = getProductCapabilitySummary(product);
     const runtimePolicy = capSummary?.runtimePolicy || resolveRuntimeUnlockPolicyClient();
     if (ctxCapWindowEl) {
@@ -2396,7 +2396,7 @@
       }
     }
 
-    // 1. 目标值（已保存）
+    // 1. Target value (saved)
     if (ctxCardSavedEl) {
       ctxCardSavedEl.textContent = pState.displayText;
       ctxCardSavedEl.title = (pState.pref?.mode === 'fixed' && pState.pref.limitTokens)
@@ -2404,26 +2404,26 @@
         : '';
     }
 
-    // 2. 本次请求携带值
+    // 2. Value carried in this request
     if (ctxCardRequestEl) {
       ctxCardRequestEl.textContent = evalResult.requestText;
       ctxCardRequestEl.title = evalResult.requestText;
     }
 
-    // 3. 对应会话
+    // 3. Corresponding session
     if (ctxCardConvoEl) {
       ctxCardConvoEl.textContent = evalResult.convoId;
       ctxCardConvoEl.title = evalResult.convoId;
     }
 
-    // 4. 生效诊断
+    // 4. Effective diagnostics
     if (ctxCardDiagnosisEl) {
       ctxCardDiagnosisEl.textContent = evalResult.diagnosis;
       ctxCardDiagnosisEl.title = evalResult.diagnosis;
       ctxCardDiagnosisEl.className = `ctx-metric-value ctx-metric-diagnosis-val is-${evalResult.status}`;
     }
 
-    // 5. 底座引擎（严格区分磁盘配置与当前运行进程已加载状态）
+    // 5. Underlying engine (strictly distinguishes on-disk config from currently running process loaded state)
     const statusInfo = mapUnlockDisplayStatus(currentUnlockStatus);
     if (ctxCardClientEl) {
       if (unlockStatusFetchError) {
@@ -2454,7 +2454,7 @@
       }
     }
 
-    // 6. 实测预算 + 独立 serviceLimit
+    // 6. Measured budget + independent serviceLimit
     const { latestBudgetObs, latestServiceLimitObs } = findLatestProductObservation(product);
     const preObs = findPreRestartBudgetForProduct(product);
     if (ctxCardObservedBudgetEl) {
@@ -2495,7 +2495,7 @@
       }
     }
 
-    // 7. 实测速度（按档位逐行显示中位数、样本数、时间，不跨档位借用）
+    // 7. Measured speed (show median, sample count, and time per tier row; never borrow across tiers)
     if (ctxCardObservedSpeedEl) {
       const mergedCalls = mergeAvailableSpeedCalls();
       const summaryRows = typeof summarizeSpeedByModel === 'function'
@@ -2527,7 +2527,7 @@
       }
     }
 
-    // 8. 提示规则与 Notice 说明
+    // 8. Prompt rules and Notice explanation
     if (ctxCardHintsEl) {
       const hints = [];
       if (product.notice) {
@@ -2576,7 +2576,7 @@
       }
     }
 
-    // 9. 精简主界面展示：当前模式、当前模型、目标设置与状态
+    // 9. Compact main UI display: current mode, current model, target setting, and status
     if (ctxSummaryModeEl) {
       ctxSummaryModeEl.textContent = contextScopeMode === 'unified'
         ? (t('models.mode.unifiedTitle') || '所有模型统一设置')
@@ -2854,7 +2854,7 @@
     const prevProd = activeSessionProductKey;
     const activeConvId = state.activeConversationId || state.conversationId || state.route || null;
 
-    // 1. 最高优先级：宿主输入框旁真实选中的模型（排除插件自身 DOM）
+    // 1. Highest priority: real selected model next to host input box (excluding plugin's own DOM)
     const hostSelected = extractHostSelectedModel();
 
     let exactId = null;
@@ -2868,7 +2868,7 @@
       detectedEffort = hostSelected.effort;
       isConfirmed = true;
     } else if (state.latest && activeConvId) {
-      // 2. 次优先级：检查 state.latest 是否属于当前活跃会话且非历史归档模型
+      // 2. Secondary priority: check if state.latest belongs to current active session and is not a legacy archived model
       const candidateId = resolveStableModelKeyClient(state.latest);
       if (candidateId) {
         const configs = state.cascadeModelConfigs || state.scan?.cascadeModelConfigs || [];
@@ -2898,7 +2898,7 @@
       activeSessionProductKey = detectedProduct;
       activeSessionEffort = detectedEffort;
       activeSessionModelConfirmed = true;
-      // 严禁在此处用 Date.now() 伪造观测时间戳；仅当无观测记录且有明确后端快照时保留已有真实观测
+      // Never forge observation timestamp with Date.now() here; only preserve existing real observation when no observation record exists and an explicit backend snapshot is present
     } else {
       activeSessionModelConfirmed = false;
       activeSessionModelKey = null;
@@ -3347,7 +3347,7 @@
         needsRestartAfterApply = false;
       }
 
-      // 重启后校验核对
+      // Post-restart verification check
       if (pendingRestartVerification) {
         if (data.runtimeEvidence?.restartDetected === true) {
           if (data.status === 'patched_loaded' && doesClientMatchVerification(data, pendingRestartVerification)) {
@@ -3467,7 +3467,7 @@
 
     try {
       await yieldForSettingsPaint();
-      // ELV-41: 底座统一应用为动态透传模式 (mov esi, edx)，使各模型设置能够独立生效，绝不把单一模型的数值固化进二进制
+      // ELV-41: Patch base binary uniformly to dynamic passthrough mode (mov esi, edx) so each model's settings take effect independently without hardcoding a single model's value
       const res = await invokeUnlockApi('apply', {
         mode: 'dynamic',
         limitTokens: null,
@@ -3511,7 +3511,7 @@
     if (btnModalRestartConfirm) btnModalRestartConfirm.disabled = true;
     if (btnRestartConfirmGo) btnRestartConfirmGo.disabled = true;
 
-    // 记录重启前的观测快照（不保存草稿）
+    // Record pre-restart observation snapshot (without saving draft)
     try {
       const obsObj = budgetTracker ? { ...budgetTracker.exportAllObservationsByProduct() } : {};
       for (const [mid, val] of observedByModelId.entries()) obsObj[mid] = val;
@@ -3644,7 +3644,7 @@
   });
 
   // -----------------------------------------------------------------------
-  // 速度对比分页与纯 SVG 图表渲染
+  // Speed comparison tab and pure SVG chart rendering
   // -----------------------------------------------------------------------
   function isValidSpeedSampleSafe(c) {
     if (typeof isValidSpeedSample === 'function') return isValidSpeedSample(c);
@@ -3837,7 +3837,7 @@
     const spanTps = Math.max(1, maxTps - minTps);
 
     const nodes = [];
-    // Y 轴参考线与刻度
+    // Y-axis reference lines and ticks
     [0, 0.5, 1].forEach(ratio => {
       const y = padT + plotH * (1 - ratio);
       const val = Math.round(minTps + spanTps * ratio);
@@ -4080,7 +4080,7 @@
 
   // -------------------------------------------------------------
   // -------------------------------------------------------------
-  // 模块 1.5: 插件面板语言 (Context Meter) 与客户端语言 (Antigravity)
+  // Module 1.5: Plugin panel language (Context Meter) and client language (Antigravity)
   // -------------------------------------------------------------
   const panelLangBtns = {
     'zh-CN': el('btn-panel-lang-zh-CN'),
@@ -4264,7 +4264,7 @@
     });
   }
 
-  // 模块 2: 客户端界面汉化 (AntigravityChinese)
+  // Module 2: Client UI localization (AntigravityChinese)
   // -------------------------------------------------------------
   const btnToggleChinese = el('btn-toggle-chinese');
   const chineseDrawerBody = el('chinese-drawer-body');
@@ -4287,7 +4287,7 @@
   });
 
   // -------------------------------------------------------------
-  // 模块 3: 免 TUN 网络直连 (AntigravityProxyNoTun)
+  // Module 3: TUN-free direct network connection (AntigravityProxyNoTun)
   // -------------------------------------------------------------
   const btnToggleProxy = el('btn-toggle-proxy');
   const proxyDrawerBody = el('proxy-drawer-body');
@@ -4365,7 +4365,7 @@
   });
 
   // -------------------------------------------------------------
-  // 模块 3.5: 系统增强、提示词档位、品牌与推荐配置控制器 (PR #3 / PR #4 融合)
+  // Module 3.5: System enhancements, prompt tiers, branding, and recommended config controller (PR #3 / PR #4 merge)
   // -------------------------------------------------------------
   const btnEnhancePresetApply = el('btn-enhance-preset-apply');
   const btnEnhanceRestoreAll = el('btn-enhance-restore-all');
@@ -4614,14 +4614,14 @@
     }
   }
 
-  /** 获取用于操作反馈插值的品牌名称展示值 */
+  /** Get brand name display value for operation feedback interpolation */
   function getBrandDisplayValue(modeKey) {
     if (modeKey === 'translated') return '反重力';
     if (modeKey === 'hidden') return t('enhance.brand.hiddenValue');
     return 'Antigravity';
   }
 
-  /** 解析后端或增强桥接返回错误，兼容 errorKey 与后端原文翻译 */
+  /** Parse error returned by backend or enhancement bridge, supporting both errorKey and raw backend text translation */
   function resolveSettingsErrorText(rawOrRes, fallbackKey = 'msg.unknownErr') {
     if (rawOrRes && typeof rawOrRes === 'object') {
       if (rawOrRes.errorKey) return t(rawOrRes.errorKey);
@@ -4703,7 +4703,7 @@
     `;
   }
 
-  /** 面板语言切换后，同步更新设置页当前仍可见的动态操作反馈与确认提示 */
+  /** After switching panel language, sync dynamic operation feedback and confirmation prompts currently visible on the settings page */
   function rerenderSettingsFeedbacks() {
     renderEnhancePresetConfirmText();
     if (enhanceGlobalResultState && enhanceGlobalResult && enhanceGlobalResult.style.display && enhanceGlobalResult.style.display !== 'none') {
@@ -5124,7 +5124,7 @@
   let selectedBrandTitle = currentBrandTitle;
 
   /**
-   * 定位品牌按钮内的目标文本节点，避免直接覆写 textContent 破坏 React 子元素结构
+   * Locate target text node inside brand button to avoid overwriting textContent directly and breaking React child structure
    */
   function findBrandTextNode(el) {
     if (!el) return null;
@@ -5153,7 +5153,7 @@
   }
 
   /**
-   * 仅更新品牌节点的纯文本内容，保持 DOM 结构与 i18n 运行时状态同步
+   * Update only the brand node's plain text content, keeping DOM structure and i18n runtime state in sync
    */
   function writeBrandButtonText(btn, expectedText) {
     if (!btn) return;
@@ -5171,7 +5171,7 @@
   }
 
   /**
-   * 在修改品牌 DOM 之前先同步运行时配置，防止 i18n 扫描器与品牌设置互相冲突
+   * Sync runtime config before modifying brand DOM to prevent conflicts between i18n scanner and brand settings
    */
   function syncRuntimeBrandConfig(modeKey) {
     try {
@@ -5211,7 +5211,7 @@
         }
         burstCount++;
         if (burstCount > 8) {
-          // 熔断保护：检测到高频互搏变更时主动停止监听，防止渲染进程主线程卡死
+          // Circuit breaker: stop observing when high-frequency ping-pong mutations are detected to prevent freezing the renderer main thread
           disconnectBrandObserver();
           return;
         }
@@ -5235,10 +5235,10 @@
       return { found: false, applied: false, nodeText: null };
     }
     disconnectBrandObserver();
-    // 1. 优先通过持久化标记锁定曾确认过的品牌节点（确保隐藏清空文字后仍可精准识别与无损恢复）
+    // 1. Prefer locating previously confirmed brand node via persistent marker (ensures accurate identification and lossless restore even after text is cleared in hidden mode)
     let targetBtn = document.querySelector('button[data-agy-brand-item="true"]');
 
-    // 2. 若尚未标记，遍历所有 title-menu-bar-item 菜单按钮，精准仅匹配原文本为 Antigravity 的节点
+    // 2. If unmarked, scan all title-menu-bar-item menu buttons and match only nodes whose original text is Antigravity
     if (!targetBtn && typeof document.querySelectorAll === 'function') {
       const menuItems = document.querySelectorAll('button[data-testid="title-menu-bar-item"]');
       for (const btn of menuItems) {
@@ -5250,7 +5250,7 @@
       }
     }
 
-    // 3. 备选：极左上角区域（top <= 70 && left <= 300）候选定位
+    // 3. Fallback: top-left corner area (top <= 70 && left <= 300) candidate lookup
     if (!targetBtn && typeof document.querySelectorAll === 'function') {
       const candidateBtns = document.querySelectorAll('button.agy-button, button[class*="agy-button"]');
       for (const btn of candidateBtns) {
@@ -5269,7 +5269,7 @@
       return { found: false, applied: false, nodeText: null };
     }
 
-    // 永久保留节点引用与原始身份标记，不顺带修改 document.title 或任务栏标题
+    // Permanently retain node reference and original identity marker; never modify document.title or taskbar title
     targetBtn.setAttribute('data-agy-brand-item', 'true');
     targetBtn._agyBrandManaged = true;
     if (!targetBtn._agyOriginalText) {
@@ -5278,7 +5278,7 @@
 
     const expectedText = modeKey === 'translated' ? '反重力' : (modeKey === 'hidden' ? '' : 'Antigravity');
 
-    // 保留菜单入口可用（不设置 display: none，隐藏模式仅清空文字），确保菜单功能随时可点击
+    // Keep menu entry clickable (do not set display: none; hidden mode only clears text) so menu functions remain accessible anytime
     targetBtn.style.display = '';
     writeBrandButtonText(targetBtn, expectedText);
     targetBtn.setAttribute('data-agy-brand-mode', modeKey);
@@ -5349,11 +5349,11 @@
       selectedBrandTitle = modeKey;
       syncBrandTitleButtons(modeKey);
 
-      // 实时真实 DOM 应用（先同步运行时配置再更新 DOM，防止 i18n 扫描器与品牌设置互相冲突）
+      // Live real DOM apply (sync runtime config before updating DOM to prevent i18n scanner and brand settings from conflicting)
       syncRuntimeBrandConfig(modeKey);
       const domResult = applyBrandTitleToDom(modeKey);
 
-      // 实时热同步（若已注入运行时环境）
+      // Live hot-sync (if runtime environment is already injected)
       try {
         if (typeof window !== 'undefined' && typeof window.__AGY_RUN_FULL_SCAN__ === 'function') {
           window.__AGY_RUN_FULL_SCAN__();
@@ -5430,7 +5430,7 @@
       syncRuntimeBrandConfig(currentBrandTitle);
       applyBrandTitleToDom(currentBrandTitle);
       const runtimeMeta = res.runtime && typeof res.runtime === 'object' ? res.runtime : null;
-      // 判定宿主界面是否已翻译：优先使用 __AGY_I18N_CONFIG__，其次主进程启动期快照 runtimeMeta.chineseActive（跨 Electron 沙箱隔离真实可靠），最后仅匹配宿主固定壳层控件并严格排除用户项目/会话标题
+      // Determine if host UI is translated: prefer __AGY_I18N_CONFIG__, then main-process startup snapshot runtimeMeta.chineseActive (reliable across Electron sandbox isolation), and finally match only fixed host shell controls while strictly excluding user project/session titles
       const isDomTranslated = (() => {
         const cfgSnap = typeof window.__AGY_I18N_CONFIG__ === 'object' && window.__AGY_I18N_CONFIG__
           ? window.__AGY_I18N_CONFIG__
@@ -5740,7 +5740,7 @@
     }
   });
 
-  // 静默初始化检测一次解锁状态与各模块状态
+  // Silently run one init check for unlock status and module states
   const initDetectTimer1 = setTimeout(() => {
     if (state.disposed) return;
     void refreshUnlockStatus();
@@ -5757,7 +5757,7 @@
     clearTimeout(initDetectTimer2);
   });
 
-  // 二级抽屉 1（面板 B 内）: 指标与背景颜色自定义抽屉折叠展开
+  // Sub-drawer 1 (inside Panel B): Metric and background color customization drawer toggle
   const btnColors = el('btn-toggle-colors');
   const colorDrawerBody = el('color-drawer-body');
   const colorDrawerArrow = el('color-drawer-arrow');
@@ -5774,7 +5774,7 @@
   }
   btnColors?.addEventListener('click', () => toggleColorsDrawer());
 
-  // 二级抽屉 2（面板 B 内）: 底层技术抽屉折叠展开
+  // Sub-drawer 2 (inside Panel B): Underlying technical drawer toggle
   const btnDetails = el('btn-toggle-details');
   const drawerBody = el('drawer-body');
   const drawerArrow = el('drawer-arrow');
@@ -5786,7 +5786,7 @@
     btnDetails.setAttribute('aria-expanded', String(isHidden));
   });
 
-  // 模型卡片下一层详情折叠展开（实测预算、速度与内部详情）
+  // Sub-layer details toggle under model card (measured budget, speed, and internal details)
   const btnCardDetails = el('btn-toggle-card-details');
   const cardDrawerBody = el('ctx-card-drawer-body');
   const cardDrawerArrow = el('ctx-card-drawer-arrow');
@@ -5798,7 +5798,7 @@
     btnCardDetails.setAttribute('aria-expanded', String(isHidden));
   });
 
-  // 二级抽屉 3（面板 A 内就近设置）: 热力图色阶与面板外观自定义抽屉折叠展开
+  // Sub-drawer 3 (inline settings inside Panel A): Heatmap color scale and panel appearance customization drawer toggle
   const btnTokenColors = el('btn-toggle-token-colors');
   const tokenColorDrawerBody = el('token-color-drawer-body');
   const tokenColorDrawerArrow = el('token-color-drawer-arrow');
@@ -5817,12 +5817,12 @@
   btnTokenColors?.addEventListener('click', () => toggleTokenColorsDrawer());
   el('heat-legend-scale')?.addEventListener('click', () => toggleTokenColorsDrawer(true));
 
-  // 热力图视图切换（每天 / 每周 / 累计总量）
+  // Heatmap view toggle (Daily / Weekly / Cumulative Total)
 
-  // 费用估算范围（默认本期：自然月）与估值模式（默认参考模型折算，首屏展示真实用量价值）
+  // Cost estimation range (default: current natural month) and valuation mode (default: reference model conversion, showing real usage value on first screen)
   let activeCostScope = 'period'; // 'period' | 'all'
   let costModelMode = 'ref'; // 'ref' | 'hybrid' | 'identified'
-  let activeRefMode = 'all'; // 兼容旧接口 'all' | 'hybrid'
+  let activeRefMode = 'all'; // Legacy API compatibility: 'all' | 'hybrid'
 
   function switchCostScope(scope) {
     activeCostScope = scope;
@@ -5879,7 +5879,7 @@
     const diffSummary = el('cost-diff-summary');
     const breakdown = el('cost-breakdown-info');
 
-    // 分类卡片 DOM
+    // Category breakdown card DOM
     const inVal = el('ref-cost-input-val');
     const inTok = el('ref-cost-input-tok');
     const caVal = el('ref-cost-cache-val');
@@ -5893,7 +5893,7 @@
       periodTag.textContent = isPeriod ? pKey : t('cost.allHistory');
     }
 
-    // 1. 提取当前范围真实用量与折算数据
+    // 1. Extract real usage and converted data for current range
     const curIn = isPeriod
       ? Number(ANTIGRAVITY_TOKEN_DATA.summary?.currentMonthInput || 0)
       : Number(ANTIGRAVITY_TOKEN_DATA.summary?.totalInputTokens || 0);
@@ -5932,7 +5932,7 @@
     const outBar = el('ref-cost-output-bar');
     let cInUSD = 0, cCaUSD = 0, cOutUSD = 0;
 
-    // 2. 估值模式计算
+    // 2. Valuation mode calculation
     let effectiveRef = curRef;
     if ((effectiveRef.totalCostUSD === undefined || effectiveRef.totalCostUSD === null) && curTotal > 0) {
       const core = typeof __AGContextMeterCore !== 'undefined' ? __AGContextMeterCore : null;
@@ -5950,7 +5950,7 @@
     const rateCa = Number(effectiveRef.matchedTier?.cacheReadPerMillion ?? 0.075);
     const rateOut = Number(effectiveRef.matchedTier?.outputPerMillion ?? 3.75);
 
-    // 更新小摘要来源与时间描述行及非实付常驻标识
+    // Update compact summary source/time description line and persistent non-actual-payment badge
     const scopeDescEl = el('cost-scope-desc');
     if (scopeDescEl) {
       const srcName = activeTokenSource === 'desktop' ? t('tokens.srcDesktopLabel') : activeTokenSource === 'cli' ? 'CLI' : t('tokens.srcAllLabel');
@@ -6028,7 +6028,7 @@
       if (outVal) outVal.textContent = `$${cOutUSD.toFixed(2)}`;
       if (outTok) outTok.textContent = t('cost.tokResidual', { tok: fmtYi(rb.output || 0) });
     } else {
-      // 仅已识别真实模型
+      // Recognized real models only
       const pricedCount = Number(curIdentified.pricedRequestsCount || 0);
       const unpricedCount = Number(curIdentified.unpricedRequestsCount || 0);
       const totalCount = pricedCount + unpricedCount;
@@ -6092,7 +6092,7 @@
       covPill.setAttribute?.('class', pillClass);
     }
 
-    // 3. 用户实际支出渲染（首屏并列右栏）
+    // 3. Render user actual spend (side-by-side right column on first screen)
     const ps = ANTIGRAVITY_TOKEN_DATA.planStatus || {};
     const curSymbol = ps.currencySymbol || '$';
     if (subSpendLbl) subSpendLbl.textContent = t('cost.subSpendLabel');
@@ -6138,7 +6138,7 @@
       }
     }
 
-    // 4. 用量与参考差额指标条（注明累计处理 Token，含缓存读取）
+    // 4. Usage vs reference delta bar (noting cumulative processed tokens, including cache reads)
     if (usageSummary) {
       usageSummary.textContent = t('cost.usageSummary', { total: fmtYi(curTotal), cache: fmtYi(curCa) });
     }
@@ -6162,7 +6162,7 @@
       }
     }
 
-    // 5. 详细未计价原因说明
+    // 5. Detailed unpriced reason explanation
     if (breakdown) {
       const modelKeys = Object.keys(curIdentified.byModel || {});
       const modelDetails = modelKeys.map(k => `${k}: $${curIdentified.byModel[k].costUSD} (${fmt(curIdentified.byModel[k].tokens)} tok)`).join('; ');
@@ -6172,7 +6172,7 @@
       });
     }
 
-    // 6. 兼容性辅助隐藏层同步
+    // 6. Compatibility auxiliary hidden layer sync
     const refGrand = el('ref-cost-grand-val');
     if (refGrand) {
       const refNum = Number(curRef.totalCostUSD || 0);
@@ -6285,11 +6285,11 @@
     }
   });
 
-  // 初始化默认热力图视图状态与药丸滑块
+  // Initialize default heatmap view state and pill slider
   switchHeatView('daily', false);
 
   /**
-   * 仅在累计页可见宽度跨过 460px 窄窗阈值时重绘，自动切换 .is-narrow
+   * Redraw only when cumulative page visible width crosses the 460px narrow-window threshold, auto-toggling .is-narrow
    */
   function syncCumResponsiveNarrowState() {
     if (state.disposed || activeHeatView !== 'cum') return false;

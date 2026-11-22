@@ -1,4 +1,4 @@
-<!-- 顶部基本单元 0: 模型额度圆环入口（工具组最左侧） -->
+<!-- Topbar basic unit 0: Model quota ring entry (leftmost in tool group) -->
 <button id="badge-quota" class="ag-unit ag-unit-quota" type="button" aria-label="模型剩余额度与重置状态"
   data-i18n-aria="badge.quota.aria" aria-expanded="false" data-quota-state="unknown">
   <svg id="quota-ring-svg" class="quota-ring-svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
@@ -25,7 +25,7 @@
   </span>
 </button>
 
-<!-- 顶部基本单元 1: 上下文小圆环（与速度入口紧邻） -->
+<!-- Topbar basic unit 1: Context mini-ring (adjacent to speed entry) -->
 <button id="badge" class="ag-unit ag-unit-ring" type="button" aria-label="会话与上下文统计" data-i18n-aria="badge.aria"
   aria-describedby="context-tooltip" aria-expanded="false">
   <svg id="ring-svg" class="ring-svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
@@ -41,7 +41,7 @@
   <span id="hover-wrap" class="sr-only"><span id="hover-extra"></span></span>
 </button>
 
-<!-- 顶部基本单元 2: 实时 Token 输出柱状图 (替代 tok/s 文本，悬停可看速率详情) -->
+<!-- Topbar basic unit 2: Live token output bar chart (replaces tok/s text; hover for rate details) -->
 <button id="badge-speed" class="ag-unit" type="button" aria-label="模型输出速度与耗时统计" data-i18n-aria="badge.speed.aria"
   aria-expanded="false" data-phase="idle" data-streaming="false">
   <span id="badge-speed-icon" class="speed-icon sr-only" aria-hidden="true">⚡</span>
@@ -50,7 +50,7 @@
   <span id="speed-hover-extra" class="sr-only"></span>
 </button>
 
-<!-- 顶部基本单元 3: 累计 Token 用量（迷你热力图） -->
+<!-- Topbar basic unit 3: Cumulative token usage (mini heatmap) -->
 <button id="badge-tokens" class="ag-unit" type="button" aria-label="Token 用量一览" data-i18n-aria="badge.tokens.aria"
   aria-expanded="false">
   <span id="token-mini-heatmap" class="token-mini-heatmap" aria-hidden="true"></span>
@@ -58,14 +58,14 @@
   <span id="token-hover-extra" class="sr-only"></span>
 </button>
 
-<!-- 顶部基本单元 4: 一键启动 CLI 模式 -->
+<!-- Topbar basic unit 4: One-click CLI mode launch -->
 <button id="badge-cli" class="ag-unit" type="button" aria-label="启动 CLI" data-i18n-aria="badge.cli.aria"
   title="一键启动 Antigravity CLI 终端（自动进入当前项目目录）" data-i18n-title="badge.cli.title">
   <span class="cli-icon" aria-hidden="true">&gt;_</span>
   <span id="cli-label">CLI</span>
 </button>
 
-<!-- 顶部基本单元 4.5: 深度上下文检查器入口 -->
+<!-- Topbar basic unit 4.5: Deep context inspector entry -->
 <button id="badge-inspector" class="ag-unit ag-unit-inspector" type="button" aria-label="深度上下文检查器"
   data-i18n-aria="inspector.badgeAria">
   <svg class="insp-nav-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor"
@@ -77,7 +77,7 @@
   <span id="inspector-badge-label" data-i18n="inspector.badgeLabel">洞察</span>
 </button>
 
-<!-- 顶部基本单元 5: 窄屏溢出菜单按钮 -->
+<!-- Topbar basic unit 5: Narrow-screen overflow menu button -->
 <button id="badge-overflow" class="ag-unit" type="button" aria-label="更多统计指标" data-i18n-aria="badge.overflow.aria"
   aria-expanded="false">
   <svg class="overflow-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -87,38 +87,38 @@
   </svg>
 </button>
 
-<!-- CLI 启动反馈提示气泡 -->
+<!-- CLI launch feedback toast -->
 <div id="cli-launch-toast" hidden role="status" aria-live="polite"></div>
 
-<!-- 上下文圆环悬停/聚焦信息气泡（参考图三层结构） -->
+<!-- Context ring hover/focus info tooltip (3-tier reference structure) -->
 <div id="context-tooltip" role="tooltip" data-visible="false" data-placement="bottom">
   <div id="ctx-tip-title" class="ctx-tip-title" data-i18n="tip.title.default">上下文窗口：</div>
   <div id="ctx-tip-pct" class="ctx-tip-pct" data-i18n="tip.pct.notReady">数据尚未就绪</div>
   <div id="ctx-tip-detail" class="ctx-tip-detail" data-i18n="tip.detail.loading">正在读取当前会话上下文用量…</div>
 </div>
 
-<!-- 模型额度圆环悬停/聚焦信息气泡（Prototype B 同心环详情） -->
+<!-- Model quota ring hover/focus info tooltip (Prototype B concentric ring details) -->
 <div id="quota-tooltip" role="tooltip" data-visible="false" data-placement="bottom">
   <div id="quota-tip-title" class="quota-tip-title" data-i18n="quota.tip.title">同心额度状态</div>
   <div id="quota-tip-rows" class="quota-tip-rows"></div>
   <div id="quota-tip-sub" class="quota-tip-sub" data-i18n="quota.tip.loading">正在读取模型额度…</div>
 </div>
 
-<!-- 输出速度悬停/聚焦信息气泡 -->
+<!-- Output speed hover/focus info tooltip -->
 <div id="speed-tooltip" role="tooltip" data-visible="false" data-placement="bottom">
   <div id="speed-tip-title" class="quota-tip-title">Generation Speed</div>
   <div id="speed-tip-rows" class="quota-tip-rows"></div>
   <div id="speed-tip-sub" class="quota-tip-sub">Waiting for generation…</div>
 </div>
 
-<!-- Token 用量悬停/聚焦信息气泡 -->
+<!-- Token usage hover/focus info tooltip -->
 <div id="tokens-tooltip" role="tooltip" data-visible="false" data-placement="bottom">
   <div id="tokens-tip-title" class="quota-tip-title">Token Usage &amp; Cost</div>
   <div id="tokens-tip-rows" class="quota-tip-rows"></div>
   <div id="tokens-tip-sub" class="quota-tip-sub">Scanning local usage…</div>
 </div>
 
-<!-- 窄屏溢出菜单 -->
+<!-- Narrow-screen overflow menu -->
 <div id="overflow-menu" hidden aria-label="更多统计快捷菜单" data-i18n-aria="overflow.aria">
   <button id="overflow-quota-btn" class="overflow-item" type="button">
     <span class="overflow-item-label"><span>◔</span><span data-i18n="overflow.quota">模型额度</span></span>
@@ -149,7 +149,7 @@
   </button>
 </div>
 
-<!-- 弹出式面板 1: 会话上下文与速度监控 (#panel, 450px) -->
+<!-- Popover panel 1: Session context & speed monitor (#panel, 450px) -->
 <section id="panel" class="ag-panel" hidden aria-label="会话与上下文详情" data-i18n-aria="panel.ctx.aria">
   <div class="panel-header-bar">
     <div class="panel-title">
@@ -159,7 +159,7 @@
       <span id="v">v0.8.5</span>
     </div>
     <div class="panel-header-actions ctx-header-actions">
-      <!-- 插件面板三语言快速切换分段按钮 -->
+      <!-- Plugin panel 3-language quick-switch segmented control -->
       <div id="panel-lang-top-segmented" class="ctx-segmented ctx-lang-top-segmented" role="group" aria-label="插件面板语言"
         data-i18n-aria="settings.panelLang.aria">
         <button id="btn-top-lang-zh-CN" class="ctx-seg-btn active" type="button" data-panel-lang="zh-CN" title="简体中文"
@@ -197,7 +197,7 @@
   </div>
 
   <div id="view-context">
-    <!-- 顶部 4 分页标签栏 -->
+    <!-- Top 4-tab bar -->
     <div id="ctx-tabs-bar" class="ctx-tabs-bar" role="tablist" aria-label="上下文面板分页" data-i18n-aria="tabs.aria">
       <button id="tab-ctx-session" class="ctx-tab-btn active" type="button" role="tab" aria-selected="true"
         data-ctx-tab="session" data-i18n="tab.session">当前会话</button>
@@ -209,9 +209,9 @@
         data-ctx-tab="settings" data-i18n="tab.settings">配置</button>
     </div>
 
-    <!-- 分页 1: 当前会话 -->
+    <!-- Tab 1: Current Session -->
     <div id="pane-ctx-session" class="ctx-tab-pane" role="tabpanel" aria-labelledby="tab-ctx-session">
-      <!-- 本轮与当前会话实时 API 等值参考行 -->
+      <!-- Live API equivalent reference row for current turn and session -->
       <div id="round-cost-bar" class="round-cost-bar" title="当前模型调用的 API 等值参考金额（按已返回用量或实时生成估算）"
         data-i18n-title="session.costBar.title">
         <span id="round-cost-text" style="font-weight:600;color:var(--ag-text-primary)"
@@ -230,7 +230,7 @@
         </button>
       </div>
 
-      <!-- 卡片 1: 核心用量速览 -->
+      <!-- Card 1: Core usage summary -->
       <div id="key-summary">
         <div class="key-header"><span class="key-title" data-i18n="session.keySummary.title">⭐ 核心用量速览</span><span
             id="key-badge" class="key-pill pill-muted" data-i18n="session.badge.reading">读取中</span></div>
@@ -254,7 +254,7 @@
         <div id="key-takeaway" class="key-takeaway" data-i18n="session.keyTakeaway.loading">正在计算核心指标…</div>
       </div>
 
-      <!-- 卡片 2: 生成体验、纯流式速度与 E 评分速览 -->
+      <!-- Card 2: Generation experience, pure streaming speed, and E-score summary -->
       <div id="speed-summary"
         style="background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:11px 12px;margin:8px 0 10px;">
         <div class="key-header">
@@ -294,7 +294,7 @@
         </div>
       </div>
 
-      <!-- 最新模型调用与当前会话请求时间线 -->
+      <!-- Latest model call and current session request timeline -->
       <div id="latest-call-card" class="latest-call-card" hidden>
         <div class="latest-call-header">
           <div class="latest-call-title-wrap">
@@ -341,7 +341,7 @@
         </div>
       </div>
 
-      <!-- 紧凑上下文设置入口卡片 -->
+      <!-- Compact context settings entry card -->
       <div id="ctx-compact-card" class="ctx-compact-card">
         <div class="ctx-compact-info">
           <div class="ctx-compact-title" data-i18n="session.compact.title">上下文设置</div>
@@ -356,7 +356,7 @@
           data-i18n="session.compact.gotoModels">去模型设置 ›</button>
       </div>
 
-      <!-- 底层技术参数与附件审计 -->
+      <!-- Underlying technical parameters and attachment audit -->
       <div class="tech-drawer">
         <button id="btn-toggle-details" class="drawer-trigger" aria-expanded="false" type="button">
           <span class="drawer-trigger-left">
@@ -417,9 +417,9 @@
       </div>
     </div>
 
-    <!-- 分页 2: 模型设置 -->
+    <!-- Tab 2: Model Settings -->
     <div id="pane-ctx-models" class="ctx-tab-pane" role="tabpanel" aria-labelledby="tab-ctx-models" hidden>
-      <!-- 1. 客户端状态条（全局一条） -->
+      <!-- 1. Client status bar (single global bar) -->
       <div id="ctx-client-status-bar" class="ctx-status-bar">
         <div class="ctx-status-bar-main">
           <div class="ctx-status-left">
@@ -447,7 +447,7 @@
         <div id="ctx-restart-feedback" class="ctx-restart-feedback" hidden></div>
       </div>
 
-      <!-- 2. 模式选择器（统一设置 vs 按模型分别设置） -->
+      <!-- 2. Mode selector (Unified vs Per-Model) -->
       <div class="ctx-scope-selector-wrap" id="ctx-scope-selector-wrap">
         <div class="ctx-scope-mode-toggle" role="radiogroup" aria-label="上下文设置模式" data-i18n-aria="models.mode.aria">
           <button type="button" class="ctx-mode-tab-btn is-active" id="btn-ctx-mode-unified" data-mode="unified"
@@ -463,7 +463,7 @@
         </div>
       </div>
 
-      <!-- 3. 模型查看与切换条（仅在分别设置模式下呈现） -->
+      <!-- 3. Model view & switch bar (shown only in Per-Model mode) -->
       <div class="ctx-models-toolbar" id="ctx-models-toolbar" hidden>
         <div class="ctx-header-model-ctrl">
           <span id="ctx-model-selector-role" class="ctx-selector-role-lbl" data-i18n="panel.ctx.viewModel">查看模型</span>
@@ -489,11 +489,11 @@
         <div class="ctx-selector-hint" data-i18n="panel.ctx.viewModelHint">仅查看模型配置与实测数据；切换聊天模型请在输入框右侧选择。</div>
       </div>
 
-      <!-- 4. 模型列表（按厂商分组，仅在分别设置模式下呈现） -->
+      <!-- 4. Model list (grouped by vendor; shown only in Per-Model mode) -->
       <div id="ctx-model-list" class="ctx-model-list" aria-label="按厂商分组的模型产品列表" data-i18n-aria="models.list.aria"
         hidden></div>
 
-      <!-- 5. 选中模型的大卡片（主视图只展示当前模式、当前模型、当前使用长度；详细信息折叠至抽屉） -->
+      <!-- 5. Selected model detail card (main view shows only current mode, model, and active length; details collapsed in drawer) -->
       <div id="ctx-model-card" class="ctx-detail-card">
         <div id="ctx-conflict-banner" class="ctx-conflict-banner" hidden>
           <div class="ctx-conflict-title" data-i18n="models.conflict.title">这个模型的不同档位保存过不同长度，请选一个统一值。</div>
@@ -516,7 +516,7 @@
           </div>
         </div>
 
-        <!-- 主界面极简核心展示区：当前模式、当前模型、当前使用长度 -->
+        <!-- Minimal core display area: current mode, current model, current active length -->
         <div class="ctx-summary-highlight-grid" id="ctx-summary-highlight-grid">
           <div class="ctx-summary-item">
             <span class="ctx-summary-label" data-i18n="models.summary.mode">当前模式</span>
@@ -536,7 +536,7 @@
           </div>
         </div>
 
-        <!-- 模型能力与当前生效参考（紧邻预算设置区，不隐藏） -->
+        <!-- Model capabilities and active reference (adjacent to budget settings, never hidden) -->
         <div class="ctx-cap-ref-card" id="ctx-capability-ref">
           <div class="ctx-cap-ref-grid">
             <div class="ctx-cap-item">
@@ -579,7 +579,7 @@
           <div class="ctx-unified-proj" id="ctx-unified-projection" hidden></div>
         </div>
 
-        <!-- 折叠抽屉：详细信息（配置来源、请求参数、底座状态、实测预算） -->
+        <!-- Collapsible drawer: Details (config source, request params, engine state, measured budget) -->
         <div class="ctx-card-details-drawer">
           <button id="btn-toggle-card-details" class="drawer-trigger ctx-card-drawer-trigger" aria-expanded="false"
             type="button">
@@ -648,7 +648,7 @@
         </div>
       </div>
 
-      <!-- 4. 设置操作区 -->
+      <!-- 4. Settings action bar -->
       <div class="ctx-adjust-box" id="ctx-adjust-box">
         <div class="ctx-preset-grid" id="ctx-preset-grid" role="group" aria-label="上下文长度预设"
           data-i18n-aria="models.preset.aria">
@@ -719,7 +719,7 @@
         </div>
       </div>
 
-      <!-- 5. 唯一保留的折叠区：详细说明 -->
+      <!-- 5. Only remaining collapsible section: Detailed explanation -->
       <div class="tech-drawer" id="context-unlock-drawer">
         <button id="btn-toggle-unlock-details" class="drawer-trigger" aria-expanded="false" type="button">
           <span class="drawer-trigger-left">
@@ -789,7 +789,7 @@
       </div>
     </div>
 
-    <!-- 分页 3: 速度对比 -->
+    <!-- Tab 3: Speed Comparison -->
     <div id="pane-ctx-speed" class="ctx-tab-pane" role="tabpanel" aria-labelledby="tab-ctx-speed" hidden>
       <div class="ctx-speed-toolbar">
         <div class="ctx-segmented" role="group" aria-label="时间范围" data-i18n-aria="speed.range.aria">
@@ -809,7 +809,7 @@
         </div>
       </div>
 
-      <!-- 柱状图卡片 -->
+      <!-- Bar chart card -->
       <div class="ctx-chart-card">
         <div class="ctx-chart-header">
           <span id="speed-bar-title" class="ctx-chart-title" data-i18n="speed.barTitle.tps">输出速度对比</span>
@@ -832,7 +832,7 @@
           条标注“样本少”。总耗时受输出长度影响，条件相近时才可比较。</div>
       </div>
 
-      <!-- 单模型折线图卡片 -->
+      <!-- Single-model line chart card -->
       <div class="ctx-chart-card">
         <div class="ctx-chart-header ctx-line-header">
           <span class="ctx-chart-title" data-i18n="speed.lineTitle">单模型速度趋势</span>
@@ -863,9 +863,9 @@
         主动测试：未接通。目前没有可靠的指定模型调用入口，暂时只能使用日常对话的实测记录。</div>
     </div>
 
-    <!-- 设置与系统配置 (第四分页: 配置 / setting) -->
+    <!-- Settings & System Configuration (Tab 4: Config / setting) -->
     <div id="pane-ctx-settings" class="ctx-tab-pane" role="tabpanel" aria-labelledby="tab-ctx-settings" hidden>
-      <!-- 1. 一键推荐配置与总览（默认不自动应用，需用户预览勾选并确认） -->
+      <!-- 1. One-click recommended config & overview (not auto-applied by default; requires user preview, selection, and confirmation) -->
       <div class="ctx-settings-card" id="enhance-preset-card">
         <div class="ctx-settings-card-hdr">
           <div class="ctx-settings-card-title" data-i18n="enhance.preset.title">✨ 一键推荐配置（按需勾选预览）</div>
@@ -931,7 +931,7 @@
         </div>
       </div>
 
-      <!-- 2. 客户端界面语言与品牌标题 (Antigravity 本身) -->
+      <!-- 2. Client UI language and brand title (Antigravity itself) -->
       <div class="ctx-settings-card" id="client-brand-lang-card">
         <div class="ctx-settings-card-hdr">
           <div class="ctx-settings-card-title" data-i18n="settings.clientLang.title">🖥️ 客户端界面语言与品牌（Antigravity 本身）
@@ -967,13 +967,13 @@
         </div>
       </div>
 
-      <!-- 3. 回答与工具使用规则 (原防幻觉档位) 与自动中文标题 -->
+      <!-- 3. Response & tool usage rules (formerly anti-hallucination tiers) and auto Chinese title -->
       <div class="ctx-settings-card" id="enhance-prompt-card">
         <div class="ctx-settings-card-hdr">
           <div class="ctx-settings-card-title" data-i18n="enhance.prompt.title">🧠 回答与工具使用规则</div>
           <span id="enhance-prompt-badge" class="key-pill pill-muted" data-i18n="settings.common.reading">读取中…</span>
         </div>
-        <!-- 第一层：默认可见的白话说明 -->
+        <!-- Layer 1: Default visible plain-language explanation -->
         <div class="ctx-plain-help"
           style="margin:4px 0 8px 0;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);border-radius:6px;padding:8px 10px;">
           <div style="font-size:11.5px;line-height:1.55;color:var(--ag-text-primary);"
@@ -1064,7 +1064,7 @@
           <div id="enhance-prompt-result-text" class="unlock-result-text"></div>
         </div>
 
-        <!-- 第二层：可展开的“详细说明” -->
+        <!-- Layer 2: Expandable "Detailed explanation" -->
         <div class="tech-drawer" id="enhance-details-drawer" style="margin-top:4px">
           <button id="btn-toggle-enhance-details" class="drawer-trigger" aria-expanded="false" type="button">
             <span class="drawer-trigger-left" data-i18n="enhance.details.toggle">详细说明：来源范围、三层状态与检测依据</span>
@@ -1094,13 +1094,13 @@
     </div>
   </div>
 
-  <!-- 保留：兼容隐藏旧中文折叠触发节点以防测试脚本寻找该 ID -->
+  <!-- Retained: hidden legacy Chinese collapse trigger node in case test scripts look up this ID -->
   <div id="chinese-i18n-drawer" hidden>
     <button id="btn-toggle-chinese" type="button" hidden></button>
     <div id="chinese-drawer-body" style="display:none;"><span id="chinese-drawer-arrow"></span></div>
   </div>
 
-  <!-- 5. 免 TUN 网络直连 (AntigravityProxyNoTun) -->
+  <!-- 5. TUN-free direct network connection (AntigravityProxyNoTun) -->
   <div class="tech-drawer" id="proxy-notun-drawer">
     <button id="btn-toggle-proxy" class="drawer-trigger" aria-expanded="false" type="button">
       <span class="drawer-trigger-left">
@@ -1146,7 +1146,7 @@
     </div>
   </div>
 
-  <!-- 6. 面板背景与指标颜色自定义 -->
+  <!-- 6. Panel background and metric color customization -->
   <div class="tech-drawer">
     <button id="btn-toggle-colors" class="drawer-trigger" aria-expanded="false" type="button">
       <span class="drawer-trigger-left"><span data-i18n="settings.colors.title">🎨 指标与背景颜色自定义（默认跟随主题）</span></span>
@@ -1243,7 +1243,7 @@
   </div>
   </div>
 
-  <!-- 全局统一居中重启确认模态弹窗（立即可见，支持顶部、底部与配置区所有重启入口） -->
+  <!-- Global centered restart confirmation modal (immediately visible; supports top, bottom, and config-area restart triggers) -->
   <div id="global-restart-modal" class="ag-modal-overlay" hidden role="dialog" aria-modal="true"
     aria-labelledby="modal-restart-title">
     <div class="ag-modal-card">
@@ -1262,7 +1262,7 @@
   </div>
 </section>
 
-<!-- 弹出式面板 2: Token 用量一览 (#panel-tokens, 730px) -->
+<!-- Popover panel 2: Token Usage Overview (#panel-tokens, 730px) -->
 <section id="panel-tokens" class="ag-panel" hidden aria-label="Token 用量一览" data-i18n-aria="badge.tokens.aria">
   <div class="panel-header-bar">
     <div class="panel-title panel-title-tokens">
@@ -1320,7 +1320,7 @@
       </div>
     </div>
 
-    <!-- 分账号账本筛选条（ELV-89：严格隔离各账号及未归属历史，不重复堆叠刷新入口） -->
+    <!-- Per-account ledger filter bar (ELV-89: strictly isolates each account and unattributed history without duplicate refresh triggers) -->
     <div id="token-account-bar" class="token-account-bar">
       <span class="token-account-lbl" data-i18n="accounts.filterLabel">账本范围:</span>
       <select id="token-account-select" class="token-account-select" aria-label="按账号筛选统计账本" data-i18n-aria="accounts.filterAria" style="display:none">
@@ -1339,13 +1339,13 @@
       <span id="token-account-scope-note" class="token-account-note"></span>
     </div>
 
-    <!-- 账号套餐状态摘要行 -->
+    <!-- Account plan status summary row -->
     <div id="plan-summary-bar" class="plan-summary-bar">
       <div class="plan-summary-badge" style="display:flex;align-items:center;gap:6px;flex:1;overflow:hidden">
         <span>💎</span>
         <span id="plan-summary-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Pro · ...</span>
       </div>
-      <!-- 黄框位置：实时联动的订阅费与汇率胶囊 -->
+      <!-- Yellow-box slot: live-synced subscription fee and exchange rate pill -->
       <div id="plan-summary-price-badge" class="plan-summary-price-badge" title="当前订阅费用与最新汇率折算 (点击展开/收起详情)"
         data-i18n-title="plan.summary.priceBadgeTitle">
         <span id="plan-summary-price-val" data-i18n="plan.summary.priceUnsetShort">待设置月费</span>
@@ -1355,7 +1355,7 @@
         data-i18n="plan.detail.toggleOpen">详情 ▼</button>
     </div>
 
-    <!-- 套餐详情卡片（可折叠，紧凑左对齐，支持就地自定义与获取方式设置） -->
+    <!-- Plan details card (collapsible, compact left-aligned, supports inline customization and acquisition method) -->
     <div id="plan-detail-card" class="plan-detail-card collapsible-pane" style="display:none">
       <div
         style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--ag-border-subcard)">
@@ -1507,7 +1507,7 @@
         <dd id="p-det-time" style="font-size:11px;color:var(--ag-text-muted)">—</dd>
       </dl>
 
-      <!-- 底部操作栏：左侧提供详情收回按钮，右侧提供自定义订阅设置按钮 -->
+      <!-- Bottom action bar: collapse details button on left, customize subscription button on right -->
       <div
         style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:6px;border-top:1px dashed var(--ag-border-subcard)">
         <button id="btn-plan-detail-collapse" class="switch-pill-btn" type="button"
@@ -1518,7 +1518,7 @@
         </button>
       </div>
 
-      <!-- 就地行内自定义编辑表单 -->
+      <!-- Inline custom edit form -->
       <div id="plan-custom-form"
         style="display:none;margin-top:8px;padding:10px;background:var(--ag-bg-subcard);border:1px solid var(--ag-border-subcard);border-radius:6px">
         <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:var(--ag-text-primary)"
@@ -1715,31 +1715,31 @@
       </div>
     </div>
 
-    <!-- API 费用估算卡片（整个费用面板默认收为小摘要，展开后才显示详情） -->
+    <!-- API cost estimate card (entire cost panel collapsed to compact summary by default; expands to show details) -->
     <div id="cost-estimate-card"
       style="display:none;background:var(--ag-bg-card);border:1px solid var(--ag-border-card);border-radius:8px;padding:12px;margin-bottom:10px">
-      <!-- 紧凑小摘要区（默认常驻展示） -->
+      <!-- Compact summary section (always visible by default) -->
       <div id="cost-compact-summary">
-        <!-- 1. 标题与范围标签 -->
+        <!-- 1. Title and range badge -->
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span id="cost-card-title" style="font-size:12.5px;font-weight:600;color:var(--ag-text-primary)"
             data-i18n="cost.title">💰 本期 API 参考金额</span>
           <span id="cost-period-tag" class="key-pill pill-muted" style="font-size:10px"
             data-i18n="cost.periodTag">本月自然月</span>
         </div>
-        <!-- 2. 来源与时间短行 -->
+        <!-- 2. Compact source and time line -->
         <div id="cost-scope-desc" style="font-size:11px;color:var(--ag-text-muted);margin-bottom:6px">—</div>
-        <!-- 3. 主要参考金额及常驻“非实付”标识 -->
+        <!-- 3. Primary reference amount and persistent "Not actual spend" badge -->
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
           <div id="cost-grand-val"
             style="font-size:22px;font-weight:700;color:var(--ag-text-primary);letter-spacing:-0.5px">$0.00</div>
           <span id="cost-non-paid-badge" class="key-pill pill-muted" style="font-size:10px;padding:1px 6px"
             data-i18n="cost.nonPaidBadge">API折算 · 非实付</span>
         </div>
-        <!-- 4. 一行参考模型/情景假设 -->
+        <!-- 4. One-line reference model / scenario assumption -->
         <div id="cost-grand-sub"
           style="font-size:11px;color:var(--ag-text-secondary);margin-bottom:6px;line-height:1.35">—</div>
-        <!-- 5. 一行订阅实付及补充入口 -->
+        <!-- 5. One-line actual subscription spend and supplementary entry -->
         <div id="cost-sub-line-wrap"
           style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--ag-bg-subcard);border-radius:6px;margin:6px 0 8px">
           <div style="display:flex;align-items:center;gap:4px">
@@ -1752,17 +1752,17 @@
           <button id="btn-cost-fill-sub" class="switch-pill-btn" type="button" style="padding:1px 6px;font-size:10.5px"
             data-i18n="cost.btnFill">补充</button>
         </div>
-        <!-- 6. 展开详情入口 -->
+        <!-- 6. Expand details entry -->
         <div id="cost-expand-bar" style="display:flex;justify-content:flex-end">
           <button id="btn-cost-details-toggle" class="switch-pill-btn" type="button"
             style="padding:2px 10px;font-size:10.5px" data-i18n="cost.btnExpand">展开详情 ▼</button>
         </div>
       </div>
 
-      <!-- 详细选项与分析区（展开后完整呈现，默认收起） -->
+      <!-- Detailed options and analysis section (shown in full when expanded; collapsed by default) -->
       <div id="cost-details-pane"
         style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--ag-border-subcard)">
-        <!-- 高级控制条：范围与覆盖率 -->
+        <!-- Advanced control bar: range and coverage -->
         <div
           style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
           <span style="font-size:11px;color:var(--ag-text-muted)" data-i18n="cost.scopeLabel">统计范围:</span>
@@ -1775,7 +1775,7 @@
           </div>
         </div>
 
-        <!-- 估值模式快捷切换（中性“参考模型估算”） -->
+        <!-- Valuation mode quick toggle (neutral "Reference model estimate") -->
         <div
           style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--ag-border-subcard)">
           <span style="font-size:10.5px;color:var(--ag-text-muted)" data-i18n="cost.modeLabel">估值模式:</span>
@@ -1789,14 +1789,14 @@
           </div>
         </div>
 
-        <!-- 用量与参考差额指标条（注明包含缓存读取） -->
+        <!-- Usage vs reference delta bar (notes inclusion of cache reads) -->
         <div
           style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;padding:6px 8px;background:var(--ag-bg-subcard);border-radius:6px;margin-bottom:8px">
           <span id="cost-usage-summary" style="font-size:11px;font-weight:600;color:var(--ag-text-primary)">—</span>
           <span id="cost-diff-summary" style="font-size:10.5px;color:var(--ag-text-muted)">—</span>
         </div>
 
-        <!-- 分类单价与公式明细卡片（输入、缓存读取、输出） -->
+        <!-- Categorized unit price and formula breakdown cards (input, cache read, output) -->
         <div id="ref-cost-breakdown-cards"
           style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
           <div class="t-card ref-cost-card" style="padding:6px">
@@ -1832,7 +1832,7 @@
           </div>
         </div>
 
-        <!-- 详细分析与未计价原因 -->
+        <!-- Detailed analysis and unpriced reasons -->
         <div id="cost-breakdown-info"
           style="font-size:10.5px;color:var(--ag-text-secondary);line-height:1.4;padding-top:6px;border-top:1px solid var(--ag-border-subcard)"
           data-i18n="cost.analyzing">
@@ -1845,14 +1845,14 @@
           优惠计价；不含缓存存储费与搜索落地费用。缓存可在多次请求中重复读取相同上下文，该总量不代表独立文本量或用户输入字数。
         </div>
 
-        <!-- 底部收起详情按钮 -->
+        <!-- Bottom collapse details button -->
         <div style="display:flex;justify-content:center;margin-top:10px">
           <button id="btn-cost-details-collapse" class="switch-pill-btn" type="button"
             style="padding:2px 14px;font-size:10.5px" data-i18n="cost.btnCollapse">收起详情 ▴</button>
         </div>
       </div>
 
-      <!-- 隐藏辅助兼容层 -->
+      <!-- Hidden auxiliary compatibility layer -->
       <div id="ref-cost-drawer-body" style="display:none">
         <span id="ref-cost-grand-val">$0.00</span>
         <span id="ref-cost-mode-label" data-i18n="cost.modeRef">参考模型估算</span>
@@ -1862,7 +1862,7 @@
       </div>
     </div>
 
-    <!-- 按模型 Token 用量分布视图（支持 7d/30d 堆叠柱图、模型/档位粒度与占比图例） -->
+    <!-- Per-model token usage distribution view (supports 7d/30d stacked bar chart, model/tier granularity, and share legend) -->
     <div id="model-usage-view" class="model-usage-card" style="display:none">
       <div class="model-usage-header">
         <div>
@@ -1919,7 +1919,7 @@
       <div id="model-usage-legend" class="model-usage-legend"></div>
     </div>
 
-    <!-- 专属 Token 统计页（包含卡片统计、热力图与调色抽屉，费用模式下完全不渲染） -->
+    <!-- Dedicated Token Stats view (includes stat cards, heatmap, and color drawer; not rendered in Cost mode) -->
     <div id="tokens-main-view">
       <div class="token-stat-cards" id="token-stat-cards">
         <div class="t-card">
@@ -1957,7 +1957,7 @@
         </div>
       </div>
 
-      <!-- 按当前来源汇总的输入/输出/缓存读取占比明细条 -->
+      <!-- Input/output/cache-read share breakdown bar aggregated by current source -->
       <div id="token-cache-breakdown" class="token-cache-breakdown">
         <div class="tcb-item">
           <span class="tcb-lbl" data-i18n="tokens.cache.uncachedInput">输入</span>
@@ -2079,7 +2079,7 @@
         </div>
       </div>
 
-      <!-- 二级交互折叠区（就近放置于面板 A 内部）：面板背景色 + 热力图 5 档色阶预设、5 档逐格独立自定义与两端插值自定义 -->
+      <!-- Secondary interactive collapsible section (placed inline inside Panel A): panel background color + 5-tier heatmap presets, per-step custom colors, and two-endpoint interpolation -->
       <div class="tech-drawer" style="margin-top:2px">
         <button id="btn-toggle-token-colors" class="drawer-trigger" aria-expanded="false" type="button">
           <span class="drawer-trigger-left"><span data-i18n="tokens.colors.title">🎨 热力图色阶与面板外观自定义（默认跟随主题）</span></span>
@@ -2250,7 +2250,7 @@
   </div>
 </section>
 
-<!-- 自定义颜色选取器面板（替换系统原生取色器） -->
+<!-- Custom color picker panel (replaces native system color picker) -->
 <div id="color-picker-popover" hidden role="dialog" aria-label="颜色选取器" data-i18n-aria="cp.title">
   <div class="cp-header">
     <div class="cp-title">
@@ -2324,7 +2324,7 @@
   </div>
 </div>
 
-<!-- 全局在线更新浮层（跨面板独立定位与显示） -->
+<!-- Global online update overlay (positioned and displayed independently across panels) -->
 <div class="update-popover" id="update-popover" style="display:none" role="dialog" aria-label="版本更新详情"
   data-i18n-aria="update.dialogAria">
   <div class="update-pop-hdr">
@@ -2351,14 +2351,14 @@
     style="display:none;font-size:10.5px;color:var(--ag-text-muted);margin-top:6px;text-align:center"></div>
 </div>
 
-<!-- 热力图浮动 Tooltip -->
+<!-- Heatmap floating tooltip -->
 <div class="heat-popover" id="heat-pop">
   <div class="pop-date" id="heat-pop-date">--</div>
   <div class="pop-val" id="heat-pop-val">0 Tokens</div>
   <div class="pop-det" id="heat-pop-det"></div>
 </div>
 
-<!-- 弹出式面板 3: 模型额度看板 (#panel-quota, 460px) -->
+<!-- Popover panel 3: Model Quota Dashboard (#panel-quota, 460px) -->
 <section id="panel-quota" class="ag-panel ag-panel-flex" hidden aria-label="模型额度看板" data-i18n-aria="quota.panel.aria">
   <div class="panel-header-bar">
     <div class="panel-title">
@@ -2386,7 +2386,7 @@
       <button id="btn-quota-banner-restart" class="switch-pill-btn active" type="button" hidden data-i18n="quota.restartBtn">重启客户端</button>
     </div>
 
-    <!-- 独立三时间分列展示（数据更新时间 / 下次自动刷新 / 当前额度重置） -->
+    <!-- Independent three-column time display (Data Updated / Next Auto-Refresh / Current Quota Reset) -->
     <div id="quota-times-grid" class="quota-times-grid">
       <div class="quota-time-cell">
         <div class="quota-time-label" data-i18n="quota.time.updated">数据更新时间</div>
@@ -2402,7 +2402,7 @@
       </div>
     </div>
 
-    <!-- 当前会话模型额度总览 -->
+    <!-- Current session model quota overview -->
     <div id="quota-current-card" class="quota-current-card">
       <div class="key-header">
         <div style="min-width:0;flex:1">
@@ -2417,7 +2417,7 @@
       <div id="quota-cur-buckets" class="quota-buckets-list"></div>
     </div>
 
-    <!-- 共享额度池清单（支持浏览切换查看而不修改当前会话模型） -->
+    <!-- Shared quota pool list (supports browsing and switching view without changing current session model) -->
     <div class="quota-pools-header">
       <span style="font-size:11.5px;font-weight:600;color:var(--ag-text-secondary)"
         data-i18n="quota.pools.heading">共享额度池与模型分布</span>
@@ -2431,7 +2431,7 @@
     <div id="quota-usage-tip" class="quota-usage-tip" data-i18n="quota.usageTip">💡
       用量提示：使用前可先查看各池剩余额度，优先选择余量充足且适合当前任务的模型。</div>
 
-    <!-- 统一多账号切换、自动切号、共享额度对照(ELV-57)与缓存保活保障(ELV-52) -->
+    <!-- Unified multi-account switching, auto-switch, shared quota comparison (ELV-57), and cache keepalive guard (ELV-52) -->
     <div id="quota-accounts-section" class="quota-accounts-section">
       <div class="quota-subsec-header">
         <span class="quota-subsec-title" data-i18n="accounts.panelTitle">👤 多账号切换与阈值自动切号</span>
@@ -2444,7 +2444,7 @@
       <div id="quota-acct-feedback" class="quota-acct-feedback" hidden></div>
       <div id="quota-accounts-list" class="quota-accounts-list"></div>
 
-      <!-- 阈值自动切号配置 -->
+      <!-- Threshold auto-switch configuration -->
       <div class="quota-subcard">
         <div class="quota-subcard-row">
           <label class="quota-switch-lbl">
@@ -2516,7 +2516,7 @@
         </div>
       </div>
 
-      <!-- 本机消耗与共享账号额度变化对照 -->
+      <!-- Local consumption vs shared account quota change comparison -->
       <div class="quota-subsec-header" style="margin-top:10px">
         <span class="quota-subsec-title" data-i18n="quota.compareTitle">📊 本机消耗与共享账号额度对照</span>
       </div>
@@ -2525,7 +2525,7 @@
       </div>
       <div id="quota-compare-list" class="quota-compare-list"></div>
 
-      <!-- 模型 Prompt Cache 保活协议与保障 -->
+      <!-- Model Prompt Cache keepalive protocol and guard -->
       <div class="quota-subsec-header" style="margin-top:10px">
         <span class="quota-subsec-title" data-i18n="keepalive.title">🧊 模型缓存保活状态与协议核查</span>
         <span id="keepalive-status-pill" class="key-pill pill-muted" data-i18n="accounts.keepaliveOff">默认关闭</span>
@@ -2541,7 +2541,7 @@
     </div>
   </div>
 
-  <!-- 移除账号二次确认模态弹窗（移除插件凭证与切号候选，保留历史本地用量与归属） -->
+  <!-- Remove account secondary confirmation modal (removes plugin credentials and switch candidates; preserves local usage history and attribution) -->
   <div id="account-remove-modal" class="ag-modal-overlay" hidden role="dialog" aria-modal="true"
     aria-labelledby="modal-account-remove-title">
     <div class="ag-modal-card">
@@ -2558,7 +2558,7 @@
   </div>
 </section>
 
-<!-- 弹出式右侧滑出检查器 (#panel-inspector, Prototype B Quiet Inspector) -->
+<!-- Popover right slide-out inspector (#panel-inspector, Prototype B Quiet Inspector) -->
 <section id="panel-inspector" class="ag-inspector-overlay" hidden role="dialog" aria-modal="true"
   aria-label="深度上下文检查器" data-i18n-aria="inspector.aria">
   <div class="ag-inspector-dialog">

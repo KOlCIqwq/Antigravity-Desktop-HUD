@@ -1,13 +1,13 @@
   // =========================================================================
-  // ELV-91: 生成体验面板（纯流式速度 7 档 / TTFT 7 档 / 总耗时 7 档 / E 指数 6 档 / 三阶段）
-  // 最高采用依据：ELV-91 维护者指定终极版与 Gemini 11 页会话最终决策（左闭右开区间）
+  // ELV-91: Generation Experience Panel (7-tier pure stream speed / 7-tier TTFT / 7-tier total duration / 6-tier E-score / 3 stages)
+  // Authoritative basis: ELV-91 maintainer final spec and Gemini 11-page session decision (half-open intervals [a, b))
   // =========================================================================
 
   const ELV91_SCORE_RULE_VERSION = 'elv91-v1';
 
   /**
-   * 格式化人性化耗时（<60s 用秒；>=60s 进位分秒；>=3600s 进位时分）
-   * 示例：138.65s -> 2 分 19 秒；4200s -> 1 小时 10 分；3599.6s -> 1 小时 0 分。
+   * Format human-readable duration (<60s in seconds; >=60s in min/sec; >=3600s in hr/min)
+   * Examples: 138.65s -> 2m 19s; 4200s -> 1h 10m; 3599.6s -> 1h 0m.
    */
   function formatHumanDuration(sec, lang = 'zh-CN') {
     if (sec === null || sec === undefined || sec === '') return '—';
@@ -466,8 +466,8 @@
   }
 
   /**
-   * 评估流式输出稳定性（必须同时满足采样点数 >= 15、纯流式耗时 > 2.0s 且真实间隔 CV <= 0.65）。
-   * 若缺少实际间隔波动数据，严禁凭直觉或流式均速给出平稳勾选。
+   * Evaluate streaming output stability (requires sampleCount >= 15, pure streaming duration > 2.0s, and actual interval CV <= 0.65).
+   * Never grant a stable check by intuition or average stream speed when actual interval jitter data is missing.
    */
   function computeStreamStability(input = {}) {
     if (input && (input.isSyntheticPoll === true || input.sampleSource === 'poll' || input.sampleSource === 'synthetic')) {
@@ -537,8 +537,8 @@
   }
 
   /**
-   * 计算 ELV-91 综合体验指数 E ∈ [0, 100]（Weber-Fechner + Hill Log-Logistic + Cobb-Douglas）。
-   * 若缺少必需指标或满足极端小样本门槛（outputTokens < 15 && totalDurationSec < 2），不强行补造分数。
+   * Compute ELV-91 composite experience index E ∈ [0, 100] (Weber-Fechner + Hill Log-Logistic + Cobb-Douglas).
+   * Do not fabricate a score if required metrics are missing or the tiny-sample threshold (outputTokens < 15 && totalDurationSec < 2) is met.
    */
   function calculateExperienceScore(input = {}, lang = 'zh-CN') {
     const outRaw = input.outputTokens;
@@ -627,9 +627,9 @@
   }
 
   /**
-   * ELV-91 三阶段生成体验综合判定器。
-   * 覆盖：等待首字(waiting) / 流式生成中(streaming) / 已完成(final) / 异常(canceled, failed, exceeded, network, idle)。
-   * 严格执行：左闭右开区间、TTFT > 30s 木桶优先警示、样本不足与缺失兜底、真实间隔方差平稳判定、防错因/重连承诺。
+   * ELV-91 three-stage generation experience evaluator.
+   * Covers: waiting for first token (waiting) / streaming / final / error states (canceled, failed, exceeded, network, idle).
+   * Strictly enforces: half-open intervals, TTFT > 30s bottleneck warning, insufficient/missing sample fallbacks, actual interval CV stability check, and no false error-cause/reconnect promises.
    */
   function evaluateGenerationExperience(rawInput = {}, lang = 'zh-CN') {
     const isEn = lang === 'en';
@@ -681,7 +681,7 @@
       else phase = 'idle';
     }
 
-    // 异常 / 取消 / 空闲状态处理（绝不制造评分或速率）
+    // Error / canceled / idle handling (never fabricate scores or speeds)
     if (phase === 'idle') {
       return {
         phase: 'idle',
@@ -743,7 +743,7 @@
       };
     }
 
-    // 阶段 1：仍在等待首字 (waiting)
+    // Stage 1: still waiting for first token (waiting)
     if (phase === 'waiting') {
       const waitSec = elapsedSec ?? 0;
       const waitFmt = formatHumanDuration(waitSec, lang);
@@ -785,7 +785,7 @@
       };
     }
 
-    // 已拿到首字之后（streaming 或 final）先算核心组件
+    // After first token arrives (streaming or final), compute core components first
     const ttftTier = ttftSec !== null ? classifyTtftTier(ttftSec, lang) : null;
     const speedTier = streamSpeed !== null ? classifyStreamSpeedTier(streamSpeed, lang) : null;
     const durationTier = totalDurationSec !== null ? classifyDurationTier(totalDurationSec, lang) : null;
@@ -808,7 +808,7 @@
         }, lang)
       : { available: false, skippedReason: 'streaming', score: null, grade: null, tier: null, ruleVersion: ELV91_SCORE_RULE_VERSION };
 
-    // 按规则 2 / 3 / 4 判断实时速度与首字等待展示评价
+    // Evaluate live speed and TTFT display feedback per Rules 2 / 3 / 4
     const isLongTtft = ttftSec !== null && ttftSec > 30;
     const lowStreamTokens = outputTokens !== null && outputTokens < 15;
     const shortStreamTime = streamingSec !== null && streamingSec < 0.5;
@@ -833,7 +833,7 @@
       : '';
 
     if (isLongTtft) {
-      // 规则 2：首字 > 30s 木桶优先警示规则（若流式样本过短或无有效速率，不把短窗口突发换算当作后续极快）
+      // Rule 2: TTFT > 30s bottleneck warning (do not treat short-window burst speed as fast streaming if sample is too short or invalid)
       evalColor = ttftTier.color;
       evalSeverity = ttftTier.severity;
       evalGlyph = ttftTier.glyph;
@@ -873,7 +873,7 @@
         subLabel = (isEn ? `TTFT ${ttftFormatted} · Stream ${streamSpeed} tok/s` : `首字 ${ttftFormatted} · 流式 ${streamSpeed} tok/s`) + stableSuffix;
       }
     } else if (isSampleSparse || hasMissingSpeed) {
-      // 规则 3：样本/数据不足兜底（严格区分“仅输出字少”与“流式持续时间过短”）
+      // Rule 3: insufficient sample/data fallback (strictly distinguish "too few tokens" vs "streaming duration too short")
       evalColor = '#9CA3AF';
       evalSeverity = 'neutral';
       evalGlyph = '⏳';
@@ -901,7 +901,7 @@
         ? (isEn ? `TTFT ${ttftFormatted} · Stability skipped` : (isTw ? `首字 ${ttftFormatted} · 略過穩定性評估` : `首字 ${ttftFormatted} · 跳过稳定性评估`))
         : (isEn ? 'Stability skipped' : (isTw ? '略過穩定性評估' : '跳过稳定性评估'));
     } else {
-      // 规则 4：常规组合（TTFT <= 30s 且样本充足）
+      // Rule 4: standard combination (TTFT <= 30s and sufficient sample)
       evalColor = speedTier.color;
       evalSeverity = speedTier.severity;
       evalGlyph = speedTier.glyph;
@@ -914,7 +914,7 @@
       subLabel = `${ttftPart}${isEn ? 'Stream' : '流式'} ${streamSpeed} tok/s${stableSuffix}`;
     }
 
-    // 阶段 3 完成态主徽章：若 E 有效显示 E 分与等级；样本过少或缺失时显式兜底；流式进行中显示实时流速主档位
+    // Stage 3 final primary badge: show E score & grade if valid, explicit fallback if sample is sparse/missing, or live speed tier while streaming
     let mainBadgeText = evalTitle;
     let mainBadgeColor = evalColor;
     let mainBadgeSeverity = evalSeverity;

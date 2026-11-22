@@ -28,7 +28,7 @@
     const email = us.email || null;
     const rawTierName = String(userTier.name || planInfo.planName || '').trim();
 
-    // 只有具备明确权益证据时才识别套餐，避免空对象或缺省状态被当成 Free
+    // Only identify a plan when explicit entitlement evidence exists; avoid treating empty objects or default states as Free
     const hasTierEvidence = Boolean(
       rawTierName ||
       userTier.id ||
@@ -175,7 +175,7 @@
       }
     }
 
-    // 混合模式：已识别按实际模型，仅未知部分按参考模型折算（精确按分类扣除残差）
+    // Hybrid mode: use actual model for identified records and reference model for unknown portion only (subtracting residuals accurately by category)
     let hybrid = null;
     if (options.mode === 'unpriced_only' || options.knownUsage) {
       const ku = options.knownUsage || {};
@@ -263,7 +263,7 @@
     };
   }
 
-  // 官方依据订阅获取方式预设表 (核对日期: 2026-11-09)
+  // Official presets by subscription acquisition channel (verified: 2026-11-09)
   const SUBSCRIPTION_ACQUISITION_PRESETS = [
     {
       id: 'normal_paid',
@@ -412,9 +412,9 @@
     ILS: '₪ '
   };
 
-  // 订阅地区参考价与静态汇率，供本地估算使用 (基准货币: CNY)
+  // Regional subscription reference prices and static FX rates for local estimation (base currency: CNY)
   const SUBSCRIPTION_REGIONS_PRESET = [
-    // 亚太与大洋洲
+    // Asia-Pacific & Oceania
     { id: 'TW', name: '中国台湾', nameTw: '中國台灣', nameEn: 'Taiwan', flag: '🇹🇼', currency: 'TWD', symbol: 'NT$', monthlyPrice: 650, rateToCNY: 0.21, aliases: ['tw', 'ntd', 'twd', 'taiwan', '台湾', '台灣', '中国台湾', '中國台灣', '台区', '台區'] },
     { id: 'HK', name: '中国香港', nameTw: '中國香港', nameEn: 'Hong Kong', flag: '🇭🇰', currency: 'HKD', symbol: 'HK$', monthlyPrice: 158.00, rateToCNY: 0.857, aliases: ['hk', 'hong kong', '香港', '中国香港', '中國香港', '港区', '港區'] },
     { id: 'JP', name: '日本', nameTw: '日本', nameEn: 'Japan', flag: '🇯🇵', currency: 'JPY', symbol: '¥', monthlyPrice: 2900, rateToCNY: 0.0425, aliases: ['jp', 'japan', '日本', '日区', '日區'] },
@@ -430,7 +430,7 @@
     { id: 'IN', name: '印度', nameTw: '印度', nameEn: 'India', flag: '🇮🇳', currency: 'INR', symbol: '₹', monthlyPrice: 1950, rateToCNY: 0.076, aliases: ['in', 'inr', 'india', '印度', '印区', '印區'] },
     { id: 'PK', name: '巴基斯坦', nameTw: '巴基斯坦', nameEn: 'Pakistan', flag: '🇵🇰', currency: 'PKR', symbol: '₨ ', monthlyPrice: 5600, rateToCNY: 0.024, aliases: ['pk', 'pkr', 'pakistan', '巴基斯坦'] },
 
-    // 北美与拉美
+    // North & Latin America
     { id: 'US', name: '美国', nameTw: '美國', nameEn: 'United States', flag: '🇺🇸', currency: 'USD', symbol: '$', monthlyPrice: 19.99, rateToCNY: 6.72, aliases: ['us', 'usa', 'united states', '美国', '美國', '美区', '美區'] },
     { id: 'CA', name: '加拿大', nameTw: '加拿大', nameEn: 'Canada', flag: '🇨🇦', currency: 'CAD', symbol: 'CA$', monthlyPrice: 26.99, rateToCNY: 4.88, aliases: ['ca', 'cad', 'canada', '加拿大'] },
     { id: 'MX', name: '墨西哥', nameTw: '墨西哥', nameEn: 'Mexico', flag: '🇲🇽', currency: 'MXN', symbol: '$', monthlyPrice: 395, rateToCNY: 0.36, aliases: ['mx', 'mxn', 'mexico', '墨西哥'] },
@@ -441,7 +441,7 @@
     { id: 'CO', name: '哥伦比亚', nameTw: '哥倫比亞', nameEn: 'Colombia', flag: '🇨🇴', currency: 'COP', symbol: '$', monthlyPrice: 84900, rateToCNY: 0.0016, aliases: ['co', 'cop', 'colombia', '哥伦比亚', '哥倫比亞'] },
     { id: 'PE', name: '秘鲁', nameTw: '秘魯', nameEn: 'Peru', flag: '🇵🇪', currency: 'PEN', symbol: 'S/ ', monthlyPrice: 76.90, rateToCNY: 1.82, aliases: ['pe', 'pen', 'peru', '秘鲁', '秘魯'] },
 
-    // 欧洲与欧亚
+    // Europe & Eurasia
     { id: 'GB', name: '英国', nameTw: '英國', nameEn: 'United Kingdom', flag: '🇬🇧', currency: 'GBP', symbol: '£', monthlyPrice: 18.99, rateToCNY: 8.75, aliases: ['gb', 'uk', 'gbp', 'united kingdom', '英国', '英國', '英区', '英區'] },
     { id: 'EU', name: '欧洲/欧盟 (德法意西荷等)', nameTw: '歐洲/歐盟 (德法義西荷等)', nameEn: 'Europe / EU', flag: '🇪🇺', currency: 'EUR', symbol: '€', monthlyPrice: 21.99, rateToCNY: 7.52, aliases: ['eu', 'eur', 'euro', 'europe', 'europe / eu', '欧洲', '歐洲', '欧盟', '歐盟', '德国', '德國', '法国', '法國', '意大利', '義大利', '西班牙', '荷兰', '荷蘭'] },
     { id: 'CH', name: '瑞士', nameTw: '瑞士', nameEn: 'Switzerland', flag: '🇨🇭', currency: 'CHF', symbol: 'CHF ', monthlyPrice: 17.00, rateToCNY: 7.85, aliases: ['ch', 'chf', 'switzerland', '瑞士'] },
@@ -454,7 +454,7 @@
     { id: 'HU', name: '匈牙利', nameTw: '匈牙利', nameEn: 'Hungary', flag: '🇭🇺', currency: 'HUF', symbol: 'Ft ', monthlyPrice: 8990, rateToCNY: 0.0185, aliases: ['hu', 'huf', 'hungary', '匈牙利'] },
     { id: 'RO', name: '罗马尼亚', nameTw: '羅馬尼亞', nameEn: 'Romania', flag: '🇷🇴', currency: 'RON', symbol: 'lei ', monthlyPrice: 109.99, rateToCNY: 1.51, aliases: ['ro', 'ron', 'romania', '罗马尼亚', '羅馬尼亞'] },
 
-    // 中东与非洲
+    // Middle East & Africa
     { id: 'NG', name: '尼日利亚', nameTw: '奈及利亞', nameEn: 'Nigeria', flag: '🇳🇬', currency: 'NGN', symbol: '₦', monthlyPrice: 28500, rateToCNY: 0.0042, aliases: ['ng', 'ngn', 'nigeria', '尼日利亚', '奈及利亞', '尼区', '尼區'] },
     { id: 'ZA', name: '南非', nameTw: '南非', nameEn: 'South Africa', flag: '🇿🇦', currency: 'ZAR', symbol: 'R ', monthlyPrice: 429.99, rateToCNY: 0.38, aliases: ['za', 'zar', 'south africa', '南非'] },
     { id: 'EG', name: '埃及', nameTw: '埃及', nameEn: 'Egypt', flag: '🇪🇬', currency: 'EGP', symbol: 'E£ ', monthlyPrice: 999, rateToCNY: 0.136, aliases: ['eg', 'egp', 'egypt', '埃及'] },
@@ -463,7 +463,7 @@
     { id: 'SA', name: '沙特阿拉伯', nameTw: '沙烏地阿拉伯', nameEn: 'Saudi Arabia', flag: '🇸🇦', currency: 'SAR', symbol: 'SAR ', monthlyPrice: 85.99, rateToCNY: 1.79, aliases: ['sa', 'sar', 'saudi', 'saudi arabia', '沙特', '沙特阿拉伯', '沙烏地阿拉伯'] },
     { id: 'IL', name: '以色列', nameTw: '以色列', nameEn: 'Israel', flag: '🇮🇱', currency: 'ILS', symbol: '₪ ', monthlyPrice: 79.90, rateToCNY: 1.85, aliases: ['il', 'ils', 'israel', '以色列'] },
 
-    // 大中华区/人民币与自定义
+    // Greater China / CNY & Custom
     { id: 'CN', name: '中国大陆 (CNY)', nameTw: '中國大陸 (CNY)', nameEn: 'China Mainland', flag: '🇨🇳', currency: 'CNY', symbol: '¥', monthlyPrice: 140.00, rateToCNY: 1.0, aliases: ['cn', 'cny', 'china', 'china mainland', '中国', '中國', '中国大陆', '中國大陸', '人民币', '人民幣', '国内', '國內'] }
   ];
 
@@ -515,7 +515,7 @@
   }
 
   /**
-   * 跨币种通用换算（依托 CNY 基准静态汇率，支持 USD / HKD / TWD / CNY 及全部预设地区币种）。
+   * Cross-currency conversion using CNY-based static FX rates (supports USD / HKD / TWD / CNY and all preset regional currencies).
    */
   function convertCurrency(amount, fromCurrency, toCurrency, regionQuery = null) {
     if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return null;
@@ -537,17 +537,17 @@
     const rawCustom = customSettings && typeof customSettings === 'object' ? customSettings : null;
     const cachedLive = options.cachedLivePlan && typeof options.cachedLivePlan === 'object' ? options.cachedLivePlan : null;
 
-    // 当前账号标识
+    // Current account identifier
     const currentEmail = rawLive?.email || options.currentEmail || cachedLive?.email || null;
     const customAccount = rawCustom?.email || rawCustom?.account || null;
 
-    // 账号隔离验证：若自定义设置声明了具体账号（非 default），且与当前账号（非 default）不匹配，则不得套用
+    // Account isolation check: if custom settings specify a concrete account (not default) that differs from the current account (not default), do not apply them
     const normCustomAcc = customAccount ? String(customAccount).trim().toLowerCase() : '';
     const normCurrentEmail = currentEmail ? String(currentEmail).trim().toLowerCase() : '';
     const isCustomAccountMatched = !normCustomAcc || normCustomAcc === 'default' || !normCurrentEmail || normCurrentEmail === 'default' || normCustomAcc === normCurrentEmail;
     const effectiveCustom = isCustomAccountMatched ? rawCustom : null;
 
-    // 1. 套餐名称与识别状态
+    // 1. Plan name and identification status
     let status = 'unidentified';
     let tierKey = 'unknown';
     let tierName = '未知';
@@ -582,7 +582,7 @@
       tierSource = 'cached_live';
     }
 
-    // 2A. 账号所在地区 (accountRegion / country) 独立取值：仅表示本地记录，不影响订阅国家与币种
+    // 2A. Account region (accountRegion / country) resolved independently: local record only, does not affect subscription country or currency
     let country = '未知';
     let countrySource = 'unknown';
     const customAccVal = effectiveCustom?.accountRegion || effectiveCustom?.country;
@@ -599,7 +599,7 @@
       countrySource = 'cached_live';
     }
 
-    // 2B. 订阅国家 (subscriptionCountry / subscriptionRegion / region) 独立取值：购买/结算所在地区，允许与账号所在地区不同
+    // 2B. Subscription country (subscriptionCountry / subscriptionRegion / region) resolved independently: purchase/billing region, may differ from account region
     let region = '未知';
     let regionSource = 'unknown';
     const liveRegVal = rawLive?.subscriptionCountry || rawLive?.subscriptionRegion || rawLive?.region;
@@ -621,7 +621,7 @@
     const subscriptionRegion = region;
     const subscriptionCountry = region;
 
-    // 3. 订阅获取方式与活动有效期
+    // 3. Subscription acquisition channel and campaign validity
     const customAcqId = effectiveCustom?.acquisitionSource || 'normal_paid';
     const presetAcq = SUBSCRIPTION_ACQUISITION_PRESETS.find(p => p.id === customAcqId) || null;
     const acquisitionSource = customAcqId;
@@ -638,10 +638,10 @@
       }
     }
 
-    // 4. 订阅币种 (subscriptionCurrency / currency)、价格模式与实付价格解析
-    // 明确区分两种价格模式：
-    // 'preset': 跟随订阅国家参考价 (按所选国家实时派生参考定价与币种，不固定用户实付)
-    // 'custom': 自定义实付金额 (尊重用户手动填写的金额，含 0 元，切换国家不覆盖)
+    // 4. Subscription currency (subscriptionCurrency / currency), price mode, and actual paid price resolution
+    // Explicitly distinguish two price modes:
+    // 'preset': follow subscription country reference price (dynamically derive reference price & currency by selected country, without fixing user-paid amount)
+    // 'custom': custom actual paid amount (respect user-entered amount including 0, not overwritten when switching country)
     let priceMode = effectiveCustom?.priceMode;
     if (priceMode !== 'preset' && priceMode !== 'custom') {
       const hasCustomPaid = Boolean(effectiveCustom && (effectiveCustom.isZeroExtraCost || (effectiveCustom.actualPricePaid !== null && effectiveCustom.actualPricePaid !== undefined && effectiveCustom.actualPricePaid !== '')));
@@ -660,7 +660,7 @@
     let rawCur = (effectiveCustom?.subscriptionCurrency || effectiveCustom?.currency) ? String(effectiveCustom.subscriptionCurrency || effectiveCustom.currency).trim().toUpperCase() : '';
     if (rawCur === 'NTD') rawCur = 'TWD';
     const isValidCustomCurrency = Boolean(rawCur && (CURRENCY_SYMBOLS[rawCur] || SUBSCRIPTION_REGIONS_PRESET.some(p => p.currency === rawCur)));
-    // 显式锁定币种：明确声明为 custom 来源，或自定义模式下指定了币种，或币种与当前地区预设不一致且明确传入
+    // Explicitly locked currency: declared custom source, currency specified in custom mode, or currency explicitly passed differing from current region preset
     const isManualCurrency = isValidCustomCurrency && (
       effectiveCustom?.currencySource === 'custom' ||
       priceMode === 'custom' ||
@@ -735,7 +735,7 @@
         priceRangeNote = `${acquisitionSourceName} · 待设置实付金额`;
       }
     } else {
-      // priceMode === 'preset' (跟随订阅国家参考价：仅 Pro 等单一公开标准价套餐套用地区参考表，Ultra 等不适用 Pro $19.99 参考价)
+      // priceMode === 'preset' (follow subscription country reference price: apply regional reference table only to single-standard-price plans like Pro; Pro $19.99 reference does not apply to Ultra, etc.)
       priceMode = 'preset';
       const isUltraTier = tierKey === 'ultra';
       if (matchedRegionPreset && !isUltraTier) {
@@ -760,14 +760,14 @@
       }
     }
 
-    // 5. 用户自定义备注（仅展示，不参与计算）
+    // 5. User custom notes (display only, excluded from calculations)
     const customNote = effectiveCustom?.customNote ? String(effectiveCustom.customNote).trim() : null;
 
-    // 6. 额度池
+    // 6. Quota pool
     const promptCredits = rawLive?.promptCredits || cachedLive?.promptCredits || null;
     const flowCredits = rawLive?.flowCredits || cachedLive?.flowCredits || null;
 
-    // 根据地区与币种自动折合人民币 (CNY)
+    // Auto-convert to CNY based on region and currency
     const rateRegion = (matchedRegionPreset && matchedRegionPreset.currency === currency) ? region : null;
     const effectiveRate = (matchedRegionPreset && matchedRegionPreset.currency === currency)
       ? matchedRegionPreset.rateToCNY
@@ -947,7 +947,7 @@
     const declaredFirstUseDate = Object.prototype.hasOwnProperty.call(payload, 'firstUseDate')
       ? (payload.firstUseDate || null)
       : (rawSum.firstUseDate || null);
-    // 切换账号或切换数据来源时，首次记录日期必须严格收敛到当前筛选范围的真实有效日期
+    // When switching accounts or data sources, firstRecordDate must strictly converge to the true valid date of the current filter scope
     const effectiveFirstUseDate = (isScopedAccountView || source !== 'all')
       ? computedFirstUseDate
       : (declaredFirstUseDate && computedFirstUseDate
@@ -1034,14 +1034,14 @@
   }
 
   /**
-   * 按周期统计级别映射热力图 5 档色阶 (0..4)
-   * @param {number} value - 当前 Token 用量
-   * @param {'day'|'week'|'month'} [kind='day'] - 统计周期
-   * @param {number} [maxInWindow=0] - 本窗口最大值 (week/month 模式下用于相对分位计算)
-   * @returns {number} 0..4 对应的档位索引
+   * Map token usage to heatmap 5-level color scale (0..4) by period granularity
+   * @param {number} value - Current token usage
+   * @param {'day'|'week'|'month'} [kind='day'] - Aggregation period
+   * @param {number} [maxInWindow=0] - Window maximum (used for relative quantile calculation in week/month mode)
+   * @returns {number} Level index in 0..4
    *
-   * 分位策略说明：
-   * - day: 采用每日绝对阈值 (0, <3M, <15M, <60M, >=60M)，保障单日细粒度用量感知。
-   * - week / month: 采用相对本窗口最大值分位 (0: 0, <=25%: 1, <=50%: 2, <=75%: 3, >75%: 4)，
-   *   自适应对比不同周期用量，避免月/周用量套用日阈值造成全部打满峰值色阶。
+   * Quantile strategy:
+   * - day: uses absolute daily thresholds (0, <3M, <15M, <60M, >=60M) to preserve fine-grained daily usage perception.
+   * - week / month: uses relative quantiles against window max (0: 0, <=25%: 1, <=50%: 2, <=75%: 3, >75%: 4)
+   *   to compare cross-period usage adaptively without saturating all cells at peak level under daily thresholds.
    */

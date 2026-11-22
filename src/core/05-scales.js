@@ -17,9 +17,9 @@
   }
 
   /**
-   * 计算 PDF v0.8.8 最终推荐的混合非线性响应 f(V, V_anchor) ∈ [0, 1]
-   * 公式: f(V) = 0.35 * ((log10(max(c, 10)) - 1) / (log10(Va) - 1)) + 0.65 * (c / Va)^0.42
-   * 其中 c = min(V, Va)
+   * Compute PDF v0.8.8 recommended hybrid nonlinear response f(V, V_anchor) ∈ [0, 1]
+   * Formula: f(V) = 0.35 * ((log10(max(c, 10)) - 1) / (log10(Va) - 1)) + 0.65 * (c / Va)^0.42
+   * where c = min(V, Va)
    */
   function computeMixedScaleResponse(value, anchor = 100e6) {
     const v = Number(value);
@@ -60,9 +60,9 @@
   ];
 
   /**
-   * 跨档单调分锚点连续插值核心：
-   * 保留 35% 对数 + 65% 幂律 (0.42 指数) 混合形态；每段均从上一个锚点尺寸平滑接起，
-   * 不因窗口跨入更高包络而缩小自身或其它同值数据点，达到物理上限后封顶并标记 overflow。
+   * Core monotonic cross-tier piecewise-anchor continuous interpolation:
+   * preserves the 35% log + 65% power-law (exponent 0.42) blend; each segment starts smoothly from the previous anchor size,
+   * never shrinks existing or equal-value points when the window crosses into a higher envelope, and caps at the physical limit with overflow marked.
    */
   function computePiecewiseAnchorScale(value, anchors, minPx, zeroPx = 0) {
     const v = Number(value);
@@ -111,7 +111,7 @@
   }
 
   /**
-   * 固定色彩插值响应 f ∈ [0, 1]（不随当前窗口最大包络变化而褪色或降档）
+   * Fixed color interpolation response f ∈ [0, 1] (never fades or shifts down as the current window max envelope changes)
    */
   function computeColorScaleResponse(value, mode = 'heat') {
     const v = Number(value) || 0;
@@ -128,8 +128,8 @@
   }
 
   /**
-   * 按当前窗口最大值返回量级包络参数：
-   * 包络决定参考圆、右侧刻度线与超量标识；图形尺寸与刻度线坐标均调用同一套连续分锚点映射。
+   * Return scale envelope parameters for the current window maximum:
+   * the envelope determines reference circles, right-side tick marks, and overflow indicators; shape sizes and tick coordinates share the same continuous piecewise-anchor mapping.
    * mode: 'yearly' | 'dailyBar' | 'weekly' | 'heat'
    */
   function resolveScaleEnvelope(windowMax, mode = 'yearly') {
@@ -186,7 +186,7 @@
       return { mode: 'dailyBar', tier: '500M+', label: '500M+', anchor: 500e6, hCap: 1.0, overflow: true, overflowThreshold: 500e6, refTicks: [1e6, 10e6, 100e6, 500e6] };
     }
 
-    // 默认 'yearly'
+    // Default 'yearly'
     if (maxVal <= 100e3) {
       return { mode: 'yearly', tier: '100K', label: '100K', anchor: 100e3, dCap: 24, hCap: 0.38, overflow: false, overflowThreshold: 1e9, refRings: [100e3] };
     }
@@ -206,8 +206,8 @@
   }
 
   /**
-   * 映射今年月度气泡直径 (保留浮点精度，共用连续分锚点映射，跨包络不缩小)
-   * V <= 0 返回 D = 5.0px (R = 2.5px)；V > 1B 封顶 D = 58.0px 并标记 overflow
+   * Map yearly monthly bubble diameter (preserves float precision, shares continuous piecewise-anchor mapping, never shrinks across envelopes)
+   * Returns D = 5.0px (R = 2.5px) for V <= 0; caps at D = 58.0px with overflow marked for V > 1B
    */
   function mapBubbleDiameter(value, _envelope) {
     const v = Number(value) || 0;
@@ -225,8 +225,8 @@
   }
 
   /**
-   * 映射每日/每周柱状图总像素高度 (保留浮点精度，共用连续分锚点映射，跨包络不缩小)
-   * linear 模式: V > 0 -> minPx + (chartHeightPx - minPx) * clamp(V / linearMax, 0, 1)
+   * Map total pixel height for daily/weekly bar charts (preserves float precision, shares continuous piecewise-anchor mapping, never shrinks across envelopes)
+   * linear mode: V > 0 -> minPx + (chartHeightPx - minPx) * clamp(V / linearMax, 0, 1)
    */
   function mapBarHeightPx(value, envelope, chartHeightPx = 140, options = {}) {
     const v = Number(value) || 0;
@@ -262,9 +262,9 @@
   }
 
   /**
-   * 计算堆叠柱内部各非零分段高度：
-   * 非零最小保底 minSegPx (默认 1.5px)，且严格保证 sum(heightPx) === totalHeightPx，
-   * 原始占比 rawRatio 始终按真实数值 value / sum 计算。
+   * Compute heights of non-zero segments inside a stacked bar:
+   * enforces minimum non-zero height minSegPx (default 1.5px) and strictly guarantees sum(heightPx) === totalHeightPx;
+   * rawRatio is always computed from true value / sum.
    */
   function allocateStackedSegmentHeights(segments, totalHeightPx, minSegPx = 1.5) {
     const list = Array.isArray(segments) ? segments : [];
@@ -323,7 +323,7 @@
         }
       }
 
-      // 将浮点舍入误差微调回最高柱段，确保 sum === targetH
+      // Adjust floating-point rounding error back into the tallest segment so sum === targetH
       const sumH = heights.reduce((a, b) => a + b, 0);
       const diff = targetH - sumH;
       if (Math.abs(diff) > 1e-12) {
@@ -390,7 +390,7 @@
   }
 
   /**
-   * HSL 色彩空间两点短弧插值
+   * Shortest-arc interpolation between two points in HSL color space
    */
   function interpolateHslHex(hexA, hexB, t) {
     const rgbA = _hexToRgbNorm(hexA);
@@ -415,7 +415,7 @@
   }
 
   /**
-   * 依据归一化响应 f ∈ [0, 1] 与连续色停靠点列表做连续 HSL 颜色映射
+   * Continuous HSL color mapping from normalized response f ∈ [0, 1] and a list of color stops
    */
   function interpolateScaleColorHsl(response, nonZeroStops) {
     const stops = Array.isArray(nonZeroStops) ? nonZeroStops.filter(Boolean) : [];
@@ -430,8 +430,8 @@
   }
 
   /**
-   * 年图「峰值」高亮圈双门槛判定 (PDF 第 14、29 页):
-   * 仅当当年至少有 2 个非零非未来月份，且最大非未来月用量 >= 10M 时才显示 Peak 圈
+   * Dual-threshold check for yearly chart "Peak" highlight ring (PDF pp. 14, 29):
+   * show the Peak ring only when the year has at least 2 non-zero non-future months and the max non-future month usage is >= 10M
    */
   function shouldShowYearlyPeakBadge(nonFutureMonthTokens) {
     const arr = Array.isArray(nonFutureMonthTokens) ? nonFutureMonthTokens : [];
@@ -448,7 +448,7 @@
   }
 
   /**
-   * 跨账号对数量级尺位置计算 ([10M, 100B])
+   * Cross-account logarithmic scale position calculation ([10M, 100B])
    * status: 'zero' | 'below_min' | 'in_range' | 'above_max'
    */
   function computeLogRulerPosition(totalTokens) {
@@ -488,11 +488,11 @@
   }
 
   /**
-   * 计算「累计总量」A+C 视图完整汇总：
-   * - 精确区间天数、活跃天数、0 用量天数、每日占比与截止累计
-   * - 超过 90 天按起点每 7 天分周组，详情含展开的日列表
-   * - 前 3 名峰值与相邻高峰合并
-   * - 至少 50% 用量的最短连续日期区间（并列取最早，不足 7 天或总量为 0 省略）
+   * Compute full "Cumulative Total" A+C view summary:
+   * - Exact range days, active days, zero-usage days, daily share, and running cumulative total
+   * - Group into 7-day weeks from start when > 90 days, with expanded daily list in details
+   * - Top 3 peaks and merging of adjacent peaks
+   * - Shortest contiguous date range covering >= 50% of usage (earliest on ties; omitted if < 7 days or total is 0)
    */
   function computeCumulativeStripSummary(dailyMap, startYmd, endYmd) {
     const map = dailyMap || {};
@@ -615,7 +615,7 @@
       });
     }
 
-    // 分配比例横带起止百分比 & 等距轴位置百分比
+    // Assign proportional band start/end percentages and equidistant axis position percentages
     const itemCount = rawItems.length;
     let accPct = 0;
     const segments = rawItems.map((item, idx) => {
@@ -637,7 +637,7 @@
       };
     });
 
-    // 选出前 3 名峰值并标记，按时间序合并相邻高峰
+    // Select and mark top 3 peaks; merge adjacent peaks in chronological order
     const activeSorted = segments
       .filter((s) => s.tokens > 0)
       .slice()
@@ -675,7 +675,7 @@
     }
     mergedPeakSpans.forEach((sp) => delete sp._lastIdx);
 
-    // 计算达到 >= 50% 区间总量的最短连续日期区间（并列取最早，不足 7 天省略）
+    // Find shortest contiguous date range reaching >= 50% of range total (earliest on ties; omitted if < 7 days)
     let concentration = null;
     let concentrationOmittedReason = null;
     if (intervalTotal <= 0) {
@@ -787,11 +787,11 @@
   }
 
   /**
-   * 计算指定日期集合的聚合费用与指标
-   * @param {Object} dailyMap - 每日记录映射
-   * @param {string[]} dateKeys - 参与统计的日期键列表 (YYYY-MM-DD)
-   * @param {string} [modelKey='gemini-3.8-flash'] - 参考模型标识
-   * @param {Object} [options={}] - 配置参数 (mode, pricingDate, todayStr)
+   * Compute aggregated cost and metrics for a given set of dates
+   * @param {Object} dailyMap - Daily records map
+   * @param {string[]} dateKeys - Date keys to aggregate (YYYY-MM-DD)
+   * @param {string} [modelKey='gemini-3.8-flash'] - Reference model identifier
+   * @param {Object} [options={}] - Options (mode, pricingDate, todayStr)
    */
   function calculateIntervalCost(dailyMap = {}, dateKeys = [], modelKey = 'gemini-3.8-flash', options = {}) {
     const todayStr = options.todayStr || (new Date().toISOString().slice(0, 10));
@@ -839,8 +839,8 @@
   }
 
   /**
-   * 解析严格 v0.x.x 格式的语义化版本
-   * 防御性要求：只接受 ^v0\.\d+\.\d+$，任何 v2.x 或其他前缀均返回 null
+   * Parse strict v0.x.x semantic version
+   * Defensive requirement: only accepts ^v0\.\d+\.\d+$; any v2.x or other prefix returns null
    */
   function parseSemver(tag) {
     if (!tag || typeof tag !== 'string') return null;
@@ -850,8 +850,8 @@
   }
 
   /**
-   * 语义化版本对比
-   * @returns {number} 1 (vA > vB), -1 (vA < vB), 0 (相等或无法对比)
+   * Compare semantic versions
+   * @returns {number} 1 (vA > vB), -1 (vA < vB), 0 (equal or incomparable)
    */
   function compareVersions(vA, vB) {
     const a = parseSemver(vA);
@@ -865,7 +865,7 @@
   }
 
   /**
-   * 过滤并筛选可用更新 Release
+   * Filter and select eligible update releases
    */
   function filterReleases(releasesList, currentVersion = '0.8.8') {
     if (!Array.isArray(releasesList)) return [];
@@ -873,7 +873,7 @@
     for (const rel of releasesList) {
       if (!rel || rel.draft || rel.prerelease) continue;
       const parsed = parseSemver(rel.tag_name);
-      if (!parsed) continue; // 忽略非 v0.x 编号
+      if (!parsed) continue; // Ignore non-v0.x tags
       const verStr = `0.${parsed.minor}.${parsed.patch}`;
       if (compareVersions(verStr, currentVersion) > 0) {
         valid.push({
@@ -891,7 +891,7 @@
   }
 
   /**
-   * 在 Release 资产中按当前平台与架构寻找对应 ZIP 及校验文件
+   * Find the matching ZIP and checksum files in release assets for the current platform and architecture
    */
   function findReleaseAsset(assets, platform, arch) {
     if (!Array.isArray(assets)) return { packageAsset: null, checksumAsset: null, targetOs: 'windows', targetArch: 'amd64' };

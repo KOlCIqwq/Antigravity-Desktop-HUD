@@ -34,8 +34,8 @@ function classifyQuotaFetchError(err) {
 }
 
 /**
- * 并发拉取宿主模型额度池与可用模型详情，带多窗口 origin 隔离、并发去重、短缓存、失败分级及账号切换检测
- * @param {Object} options - 支持 force / origin / backendSource / userStatus / quotaSummary / connect 等参数
+ * Concurrently fetch host model quota pools and available model details with multi-window origin isolation, request deduplication, short caching, failure classification, and account-switch detection
+ * @param {Object} options - Supports force / origin / backendSource / userStatus / quotaSummary / connect, etc.
  */
 function isValidUserStatusPayload(val) {
   if (!val || typeof val !== 'object' || Array.isArray(val) || Object.keys(val).length === 0) return false;
@@ -54,7 +54,7 @@ async function fetchQuotaSnapshotFromHost(options = {}) {
     ? options.backendSource.trim()
     : 'host';
 
-  // 短缓存防刷（仅在非强制刷新且无静态测试桩时生效，15s 内复用同 origin 结果）
+  // Short cache rate-limiting (active only when not force-refreshing and no static test stub is provided; reuses same-origin result within 15s)
   const prevCachedQuota = cachedQuotaStateByOrigin.get(originScope) || null;
   if (!force && !hasStaticFixture && !options.agDir && prevCachedQuota && (nowMs - prevCachedQuota.fetchedAtMs < 15000)) {
     if (prevCachedQuota.backendSource === backendSource && prevCachedQuota.collectorVersion === PROJECT_VERSION) {
@@ -68,7 +68,7 @@ async function fetchQuotaSnapshotFromHost(options = {}) {
     };
   }
 
-  // 如果已有相同 origin 请求进行中，直接合并等待，避免重复请求
+  // If an identical origin request is already in flight, coalesce and await it to avoid duplicate requests
   const activePromise = activeQuotaFetchByOrigin.get(originScope) || null;
   if (!hasStaticFixture && activePromise) {
     if (!force) return activePromise;
@@ -151,7 +151,7 @@ async function fetchQuotaSnapshotFromHost(options = {}) {
     const prevAccountScopeKey = scopeUserEntry?.accountScopeKey || scopeQuotaState?.accountScopeKey || null;
     const nextScopeKey = rawEmail ? buildAccountScopeKey(rawEmail) : (prevAccountScopeKey || 'anonymous');
 
-    // 账号切换检测：一旦发现同 origin 作用域下账号变化，立即清掉旧账号缓存，绝不跨账号残留旧额度
+    // Account-switch detection: immediately clear old account cache upon detecting an account change under the same origin scope; never leave stale quota across accounts
     const accountSwitched = Boolean(
       rawEmail &&
       prevAccountScopeKey &&
@@ -170,7 +170,7 @@ async function fetchQuotaSnapshotFromHost(options = {}) {
     }
 
     if (fetchError) {
-      // 保留同 origin 同账号最后一次有效原始响应以产出 stale 状态；无旧数据时产出 error 状态
+      // Retain the last valid raw response for the same origin and account to produce a stale state; produce an error state if no prior data exists
       const curScoped = cachedQuotaStateByOrigin.get(originScope) || null;
       const prevRaw = (!accountSwitched && curScoped?._raw) ? curScoped._raw : null;
       const snapshot = buildModelQuotaSnapshot({

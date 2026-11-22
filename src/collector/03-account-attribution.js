@@ -26,7 +26,7 @@ function parseTimestampToMs(raw) {
   }
   const str = String(raw).trim();
   if (!str) return null;
-  // 纯日期 YYYY-MM-DD 缺少精确时刻，不得视为请求精确时间窗边界
+  // Date-only YYYY-MM-DD lacks an exact timestamp and must not be treated as a precise request time-window boundary
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
   if (/^\d+(\.\d+)?$/.test(str)) {
     const num = Number(str);
@@ -39,7 +39,7 @@ function parseTimestampToMs(raw) {
 
 function extractCallTimeBoundsMs(call) {
   if (!call || typeof call !== 'object') return { startMs: null, endMs: null };
-  // 临时轮询时间戳 (dateIsProvisional / dateSource === 'provisional') 是点开旧会话时填入的浏览时刻 Date.now()，绝不可当作请求真实发生时间
+  // Provisional polling timestamps (dateIsProvisional / dateSource === 'provisional') reflect Date.now() when opening an old session and must never be treated as the actual request time
   const isProvisional = Boolean(call.dateIsProvisional || call.dateSource === 'provisional');
   const allowRawTimestamp = !isProvisional;
   const liveObsMs = call.liveRealtimeConfirmed === true ? parseTimestampToMs(call.liveObservedAtMs) : null;
@@ -101,7 +101,7 @@ function mergeAccountAttributionFields(baseEntry = {}, incomingEntry = {}) {
         unattributedReason: null
       };
     }
-    // 同一置信度指向不同账号时拒绝猜测，降级未归属冲突
+    // Refuse to guess when equal-confidence matches point to different accounts; downgrade to unattributed conflict
     return {
       accountScopeKey: null,
       accountAttributionConfidence: 'unattributed',
@@ -250,7 +250,7 @@ function resolveCallAccountAttribution(call, options = {}, existing = null) {
         forceUnattributed: true
       };
     }
-    // 优先采用非临时的权威请求时间戳（若入参为点开旧会话产生的 provisional 浏览记录，必须使用账本已有 existing 的权威时间）
+    // Prefer non-provisional authoritative request timestamps (if the input is a provisional browsing record from opening an old session, use the existing authoritative timestamp from the ledger)
     const callBounds = extractCallTimeBoundsMs(call);
     const existBounds = existing ? extractCallTimeBoundsMs(existing) : { startMs: null, endMs: null };
     const authBounds = callBounds.startMs != null ? callBounds : existBounds;
@@ -287,8 +287,8 @@ function resolveCallAccountAttribution(call, options = {}, existing = null) {
       };
     }
 
-    // 尚无 transcript 精确时间时：仅对前端明确确认为“会话水合后实时新产生/流式刚结束”的本机请求归入当前已验证活跃账号；
-    // 点开历史旧会话首次水合出来的旧步骤严禁按当前登录账号猜测归属！
+    // When no exact transcript timestamp is available yet: only attribute local requests explicitly confirmed by the frontend as newly generated or just-finished streaming after session hydration to the currently verified active account;
+    // Old steps hydrated for the first time when opening a historical session must never be guessed as belonging to the currently logged-in account!
     const liveAcct = options.liveConfirmedAccount;
     const isOfflineScan = Boolean(options.trustTranscriptDate || call.fromTranscriptScan);
     if (!hasExactTs && !isOfflineScan && call.liveRealtimeConfirmed === true && callSource === 'desktop' && liveAcct && typeof liveAcct.email === 'string' && liveAcct.email.includes('@')) {
@@ -304,7 +304,7 @@ function resolveCallAccountAttribution(call, options = {}, existing = null) {
       }
     }
 
-    // 若既无精确时间也非实时确认新请求，保持现有有效归属或暂列未归属（等待 transcript 权威时间落盘裁决）
+    // If neither an exact timestamp nor a real-time confirmed new request is present, keep existing valid attribution or leave unattributed (waiting for authoritative transcript timestamp on disk)
     if (existing && isValidAccountScopeKey(existing.accountScopeKey) && existing.accountAttributionConfidence !== 'unattributed') {
       return {
         accountScopeKey: existing.accountScopeKey.trim(),
@@ -321,7 +321,7 @@ function resolveCallAccountAttribution(call, options = {}, existing = null) {
     };
   }
 
-  // 未提供 accountSessions 时：历史离线扫描严禁按当前账号强行归属；保留测试或明确传参兼容性
+  // When accountSessions is not provided: offline historical scans must never force-attribute to the current account; preserve compatibility for tests or explicit arguments
   if (options.trustTranscriptDate || call.fromTranscriptScan) {
     return {
       accountScopeKey: null,
@@ -360,7 +360,7 @@ function recordModelCalls(newCalls = [], options = {}) {
   const resolvedLedgerPath = path.resolve(getPricingLedgerPath(targetDir));
 
   const executeLocked = () => {
-    // 持锁期间强制失效内存缓存，确保跨进程场景读到前一进程刚落盘的最新账本状态
+    // Force-invalidate in-memory cache while holding the lock so cross-process callers read the latest ledger state just flushed by a previous process
     if (!fsOpt) {
       ledgerCacheByPath.delete(normalizeLedgerKey(resolvedLedgerPath));
     }
@@ -379,13 +379,13 @@ function recordModelCalls(newCalls = [], options = {}) {
       );
     }
 
-    // 第一阶段：每条传入记录仅按自身 targetKey 入表或同键合并，避免逐条贪心跨键绑定引发输入顺序依赖
+    // Phase 1: Insert or same-key-merge each incoming record only by its own targetKey, avoiding greedy per-record cross-key binding that causes input-order dependency
     const beforeCalls = ledger.calls || {};
     const draftCalls = { ...beforeCalls };
 
     for (const call of newCalls) {
       if (!call || !call.callId) continue;
-      // 默认阻止测试样例和合成调用污染生产账本
+      // Block test fixtures and synthetic calls from polluting the production ledger by default
       if (!options.allowSynthetic && isSyntheticCall(call.callId, call)) continue;
 
       const targetKey = String(call.callId);
@@ -393,7 +393,7 @@ function recordModelCalls(newCalls = [], options = {}) {
       const callCidRaw = call.cascadeId || incomingFallback?.cascadeId;
       const existing = draftCalls[targetKey];
 
-      // 严格账号归属：结合会话活跃时间窗或显式已核实账号，绝不把离线扫描旧记录或跨号边界错记到当前账号
+      // Strict account attribution: combine session active time windows or explicitly verified accounts; never misattribute offline scan legacy records or cross-account boundaries to the current account
       const attrRes = resolveCallAccountAttribution(call, options, existing);
       const resolvedScopeKey = attrRes.accountScopeKey;
       const resolvedAttrConf = attrRes.accountAttributionConfidence;
@@ -514,7 +514,7 @@ function recordModelCalls(newCalls = [], options = {}) {
       }
     }
 
-    // 第二阶段：在完整候选集（既有记录 + 整批新入账记录）上统一执行无顺序依赖的充分证据跨键消解
+    // Phase 2: Perform order-independent sufficient-evidence cross-key resolution over the complete candidate set (existing records + entire batch of new records)
     reconcileConfirmableDuplicateStepCalls(draftCalls);
     pruneExcessSpeedSamples(draftCalls);
 
@@ -530,13 +530,13 @@ function recordModelCalls(newCalls = [], options = {}) {
       if (!saveRes.ok) {
         return createRecordResult(false, false, saveRes.error || '保存账本落盘失败', saveRes.phase, saveRes.code);
       }
-      // 同步落盘物理隔离的分账号账本目录（account_ledgers/<accountScopeKey>.json 与 unattributed.json）
+      // Synchronously flush physically isolated per-account ledger directory (account_ledgers/<accountScopeKey>.json and unattributed.json)
       if (!fsOpt || typeof fsOpt.fs?.writeFileSync === 'function') {
         try {
           syncAccountLedgerPartitions(resolvedLedgerPath, draftCalls, fsOpt?.fs || fs);
         } catch { }
       }
-      // 账本变化时失效聚合热缓存（含按 agDir 隔离作用域的扫描缓存）
+      // Invalidate aggregation hot cache on ledger change (including scan caches scoped by agDir)
       cachedTokenHistoryAt = 0;
     }
 
@@ -550,8 +550,8 @@ function recordModelCalls(newCalls = [], options = {}) {
 }
 
 /**
- * 将账本 calls 按 accountScopeKey 严格拆分为独立账号分片与 unattributed.json
- * 不同账号数据绝不互相混合，未归属历史单独隔离。
+ * Strictly split ledger calls by accountScopeKey into per-account shards and unattributed.json
+ * Data across different accounts is never mixed; unattributed history is isolated separately.
  */
 function syncAccountLedgerPartitions(resolvedLedgerPath, callsMap = {}, fsImpl = fs) {
   const partDir = path.join(path.dirname(resolvedLedgerPath), 'account_ledgers');
@@ -582,7 +582,7 @@ function syncAccountLedgerPartitions(resolvedLedgerPath, callsMap = {}, fsImpl =
     fsImpl.writeFileSync(tmp, payload, 'utf8');
     fsImpl.renameSync(tmp, targetFile);
   }
-  // 清理纠偏后已不再包含任何归属记录的陈旧 acct_*.json 分片文件，保证分片目录与主账本 100% 一致
+  // Clean up stale acct_*.json shard files that no longer contain any attributed records after repair, keeping the shard directory 100% consistent with the main ledger
   if (typeof fsImpl.readdirSync === 'function' && typeof fsImpl.unlinkSync === 'function') {
     try {
       for (const fName of fsImpl.readdirSync(partDir)) {
@@ -639,11 +639,11 @@ function buildRefCostBundle(inp, outp, cap, tot, mInp, mOutp, mCap, mTot, costAl
 }
 
 /**
- * 构建严格的跨账号用量隔离统计：
- * - 只有带明确 accountScopeKey 且非 unattributed 的记录计入对应账号；
- * - 为每个账号完整生成 dailyMapBySource / dailyModelMapBySource / 费用 / 缓存 / 对话数，确保全界面任意筛选项严密同步；
- * - 未归属记录与旧档案按照「全量 - 已归属各账号总和」精确对账并入 unattributed，绝不默认算给当前账号。
- * - 保活请求 (isKeepalive: true) 计入对应账号同时提供独立统计 keepaliveStats。
+ * Build strict cross-account usage isolation statistics:
+ * - Only records with an explicit accountScopeKey (other than unattributed) are counted toward that account;
+ * - Generate complete dailyMapBySource / dailyModelMapBySource / cost / cache / conversation counts per account, keeping all UI filters strictly synchronized;
+ * - Reconcile unattributed records and legacy archives precisely as (total - sum of attributed accounts) into unattributed, never defaulting to the current account;
+ * - Keepalive requests (isKeepalive: true) are counted toward their corresponding account and also exposed separately in keepaliveStats.
  */
 function buildAccountUsageBreakdown({
   finalCallsEntries = [],
@@ -826,7 +826,7 @@ function buildAccountUsageBreakdown({
     delete acc._cliCalls;
   }
 
-  // 构建严格“未归属历史”视图：严格遵循「全量 - SUM(已归属账号)」守恒公式
+  // Build strict "unattributed history" view: strictly follow the conservation formula (total - SUM(attributed accounts))
   const unattributed = ensureAcct('unattributed');
   unattributed.unattributedReasonCounts = {};
   unattributed.unattributedReasonTokens = {};
@@ -984,11 +984,11 @@ function buildAccountUsageBreakdown({
 const CURRENT_ATTRIBUTION_REPAIR_VERSION = 'elv89-v3';
 
 /**
- * 幂等账本账号归属迁移与纠偏：
- * - 先对原 pricing_ledger_v1.json 做 .bak 备份；
- * - 对带有精确时间戳且落在单一已核实 accountSessions 窗口内的记录准确归属；
- * - 剥离早于追踪起点、缺时间戳、IDE 未核实或跨切号边界却被错误标为当前账号的 accountScopeKey；
- * - 写入 attributionRepairVersion: CURRENT_ATTRIBUTION_REPAIR_VERSION，多次执行保持幂等不重复计数。
+ * Idempotent ledger account-attribution migration and repair:
+ * - Back up the original pricing_ledger_v1.json to .bak first;
+ * - Accurately attribute records with exact timestamps falling within a single verified accountSessions window;
+ * - Strip accountScopeKey from records earlier than tracking start, missing timestamps, unverified by IDE, or crossing account-switch boundaries that were mistakenly tagged as the current account;
+ * - Write attributionRepairVersion: CURRENT_ATTRIBUTION_REPAIR_VERSION so repeated runs remain idempotent without double-counting.
  */
 function repairAndMigrateAccountLedger({
   agDir = null,
@@ -1039,7 +1039,7 @@ function repairAndMigrateAccountLedger({
         ? copy.accountScopeKey.trim()
         : null;
 
-      // 保护极近期（3分钟内）实时确认的新增调用，避免在 transcript 落盘前或窗口同步间隙被误清除（不写入修复版本号以便稳定后复核）
+      // Protect very recent (within 3 minutes) real-time confirmed new calls from being cleared before transcript flush or during window sync gaps (omit repair version so they are re-verified once settled)
       if (copy.accountAttributionConfidence === 'live_confirmed_account' && curScope && !force) {
         const obsMs = Number(copy.liveObservedAtMs) || (copy.updatedAt ? Date.parse(copy.updatedAt) : NaN) || Number(copy.timestamp);
         if (Number.isFinite(obsMs) && (Date.now() - obsMs) >= 0 && (Date.now() - obsMs) < 180000) {
@@ -1048,7 +1048,7 @@ function repairAndMigrateAccountLedger({
         }
       }
 
-      // 显式保留用户/实验硬绑定的账号记录（keepalive / explicit email），其余均依据权威时间戳严格复核
+      // Explicitly preserve user/experiment hard-bound account records (keepalive / explicit email); re-verify all others strictly against authoritative timestamps
       if (copy.isKeepalive && curScope && copy.accountAttributionConfidence === 'keepalive_bound') {
         copy.attributionRepairVersion = CURRENT_ATTRIBUTION_REPAIR_VERSION;
         nextCalls[k] = copy;
@@ -1144,7 +1144,7 @@ function repairAndMigrateAccountLedger({
 }
 
 /**
- * 查询某账号在某模型共享池与指定时间区间内的本地实测消耗（专供 ELV-57 配额变化对照使用）
+ * Query locally measured consumption for an account in a model shared pool over a given time range (dedicated to ELV-57 quota delta comparison)
  */
 function summarizeAccountWindowUsage({ agDir, ledgerPath, accountScopeKey, poolKey, startMs, endMs } = {}) {
   const targetDir = ledgerPath || agDir;

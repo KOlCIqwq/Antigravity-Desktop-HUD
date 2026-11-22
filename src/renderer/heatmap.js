@@ -44,7 +44,7 @@
         }
       }
       if (cells.length === 0 && typeof heatPageOffset !== 'undefined') {
-        // 如果目标日因旧分页偏移不在当前页，回到最新页或定位并重绘
+        // If the target day is not on the current page due to an old pagination offset, return to the latest page or locate and redraw
         heatPageOffset = 0;
         renderHeatmapGrid(true);
       }
@@ -201,7 +201,7 @@
       : { tier: '400M', anchor: 400e6, hCap: 0.84, refTicks: [4e6, 40e6, 400e6], overflowThreshold: 2e9 };
     box.setAttribute('data-scale-tier', env.tier || '');
 
-    // 绘制右侧量级参考线（统一调用 mapBarHeightPx，确保刻度与柱图位置精确一致）
+    // Draw right-side scale reference lines (unified via mapBarHeightPx so ticks align precisely with bar positions)
     const ticks = Array.isArray(env.refTicks) ? env.refTicks : [];
     const lastTickVal = ticks.length ? ticks[ticks.length - 1] : 0;
     const visibleTicks = ticks.length > 3 ? [ticks[0], ticks[ticks.length - 2], lastTickVal] : ticks;
@@ -281,7 +281,7 @@
     const win = computeTimelineWindow();
     const map = ANTIGRAVITY_TOKEN_DATA.dailyMap || {};
     const todayKey = formatLocalYmd(win.today);
-    // 当前窗口截断到今天；历史翻页窗口展示到该区间末日
+    // Truncate current window to today; historical paginated windows show through the end of that range
     const activeEnd = win.winEnd.getTime() > win.today.getTime() ? win.today : win.winEnd;
     const startKey = formatLocalYmd(win.winStart);
     const endKey = formatLocalYmd(activeEnd);
@@ -299,7 +299,7 @@
       };
     _lastCumSummary = summary;
 
-    // 切换账号/区间后若锁定键不再属于当前窗口，自动清理失效选中项
+    // Clear stale selection if the locked key no longer belongs to the current window after switching account/range
     if (cumLockedKey && !summary.segments.some(s => s.key === cumLockedKey)) {
       cumLockedKey = null;
       cumExpandedWeekKey = null;
@@ -326,7 +326,7 @@
     rootEl.setAttribute('data-total-days', String(summary.totalDays));
     rootEl.setAttribute('data-interval-total', String(summary.intervalTotal));
 
-    // 1. 顶部数字行（总量与参考金额各只在此处显示一次）
+    // 1. Top metrics row (total volume and reference cost each shown only once here)
     const headRow = document.createElement('div');
     headRow.className = 'cum-summary-head';
 
@@ -365,7 +365,7 @@
     headRow.appendChild(headCost);
     rootEl.appendChild(headRow);
 
-    // 2. 跨账号共用的对数量级尺 (10M / 100M / 1B / 10B / 100B)
+    // 2. Shared cross-account logarithmic scale ruler (10M / 100M / 1B / 10B / 100B)
     const rulerCard = document.createElement('div');
     rulerCard.className = 'cum-ruler-card';
     rulerCard.setAttribute('data-ruler-status', summary.ruler.status);
@@ -426,7 +426,7 @@
     rulerCard.appendChild(rulerWrap);
     rootEl.appendChild(rulerCard);
 
-    // 3. 空态处理（总量为 0，避免除零）
+    // 3. Empty state handling (total is 0, avoid division by zero)
     if (summary.intervalTotal <= 0) {
       const emptyBox = document.createElement('div');
       emptyBox.className = 'cum-empty-state';
@@ -445,7 +445,7 @@
       return;
     }
 
-    // 4. 主图：比例时间带 + 高峰标签 + 连接线 + 等距日期轴
+    // 4. Main chart: proportional time strip + peak label + connector lines + equidistant date axis
     const stripSection = document.createElement('div');
     stripSection.className = 'cum-strip-section';
 
@@ -559,7 +559,7 @@
     summary.segments.forEach((seg, sIdx) => {
       const isActiveFocus = Boolean((cumHoveredKey || cumLockedKey) === seg.key);
 
-      // 横带仅含非零日/周；零用量日不占宽
+      // Strip only includes non-zero days/weeks; zero-usage days take no width
       if (seg.tokens > 0 && seg.stripWidthPct > 0) {
         const segBtn = document.createElement('button');
         segBtn.type = 'button';
@@ -609,7 +609,7 @@
         segNodeMap.set(seg.key, segBtn);
         activeBarIdx += 1;
 
-        // 细连接线（仅连接非零有效段到等距刻度点）
+        // Thin connector lines (connect only non-zero active segments to equidistant tick points)
         const connLine = createSvgNode('line');
         connLine.setAttribute('class', `cum-conn-line${isActiveFocus ? ' is-active' : ''}`);
         connLine.setAttribute('data-cum-key', seg.key);
@@ -621,7 +621,7 @@
         connNodeMap.set(seg.key, connLine);
       }
 
-      // 等距日期轴（含 0 用量日 ✕ 标记）
+      // Equidistant date axis (with ✕ marker for zero-usage days)
       const slotBtn = document.createElement('button');
       slotBtn.type = 'button';
       slotBtn.className = `cum-axis-slot${seg.isZero ? ' is-zero' : ''}${isActiveFocus ? ' is-active' : ''}`;
@@ -682,7 +682,7 @@
     stripSection.appendChild(axisRow);
     rootEl.appendChild(stripSection);
 
-    // 5. 结论行（基于真实数据计算，不写死）
+    // 5. Summary line (computed from real data, never hardcoded)
     const concRow = document.createElement('div');
     concRow.className = `cum-conclusion-row${summary.concentrationOmittedReason === 'insufficient_days' ? ' is-insufficient' : ''}`;
     concRow.id = 'cum-conclusion-row';
@@ -713,7 +713,7 @@
     concRow.textContent = concParts.join(' · ');
     rootEl.appendChild(concRow);
 
-    // 6. 锁定详情与联动「每天」热力图 / 周展开到日
+    // 6. Locked details & sync with "Daily" heatmap / week drill-down to day
     const lockedSeg = cumLockedKey ? summary.segments.find(s => s.key === cumLockedKey) : null;
     if (lockedSeg) {
       const insp = document.createElement('div');
@@ -871,7 +871,7 @@
     const today = win.today;
     const todayKey = formatLocalYmd(today);
 
-    // 计算当前所选月 (按 heatMonthOffset 自然月偏移)
+    // Compute currently selected month (calendar month offset by heatMonthOffset)
     const targetDate = new Date(today.getFullYear(), today.getMonth() + heatMonthOffset, 1);
     const targetYear = targetDate.getFullYear();
     const targetMonth = targetDate.getMonth();
@@ -1044,14 +1044,14 @@
     svg.setAttribute('width', String(W));
     svg.setAttribute('height', String(H));
 
-    // 右侧留出同心参考环独立区域，保证窄窗不挤压或遮挡任何月份标签
+    // Reserve dedicated right-side area for concentric reference rings so narrow windows never squeeze or clip month labels
     const refZoneW = Math.min(70, Math.max(52, Math.round(W * 0.11)));
     const monthsWidth = Math.max(200, W - refZoneW);
     const colW = monthsWidth / 12;
     const cy = 40;
     const labelY = H - 7;
 
-    // 判定双门槛 Peak 徽标（活跃非零月 >= 2 且最大值 >= 10M）
+    // Determine dual-threshold Peak badge (active non-zero months >= 2 and max >= 10M)
     const nonFutureTokens = monthsData.filter(x => !x.isFuture).map(x => x.tokens);
     const allowPeak = typeof core.shouldShowYearlyPeakBadge === 'function'
       ? core.shouldShowYearlyPeakBadge(nonFutureTokens)
@@ -1067,7 +1067,7 @@
     });
     const peakMonthIndex = allowPeak ? rawPeakIdx : -1;
 
-    // 1. 先渲染右侧背景同心参考圆（1M / 10M / 100M / 1B 中匹配当前包络的物理大小）
+    // 1. Render right-side background concentric reference circles first (physical size matching current envelope among 1M / 10M / 100M / 1B)
     const refGroup = createSvgNode('g');
     refGroup.setAttribute('class', 'yearly-ref-rings');
     const refCx = monthsWidth + refZoneW / 2;
@@ -1096,7 +1096,7 @@
     refGroup.appendChild(refCaption);
     svg.appendChild(refGroup);
 
-    // 2. 渲染 12 个月气泡、状态描边与全列点击热区
+    // 2. Render 12-month bubbles, state strokes, and full-column click hitboxes
     monthsData.forEach((item, idx) => {
       const cx = colW * idx + colW / 2;
       const g = createSvgNode('g');
@@ -1105,7 +1105,7 @@
       g.setAttribute('data-tokens', String(item.tokens));
       g.style.animationDelay = `${idx * 20}ms`;
 
-      // 全列交互热区，确保 5px 零值点或极小气泡可轻松悬浮与点击
+      // Full-column interactive hitbox so 5px zero-value dots or tiny bubbles are easy to hover and click
       const hitRect = createSvgNode('rect');
       hitRect.setAttribute('class', 'bubble-hit-area');
       hitRect.setAttribute('x', String(colW * idx));
@@ -1232,16 +1232,16 @@
     updateSummaryBar('yearly', allYearDates);
   }
 
-  // 初始化首次使用日与时间轴显示并触发后台完整历史同步
+  // Initialize first-used date and timeline display, and trigger background full-history sync
   computeTimelineWindow();
   void syncTokenHistoryFromHost();
 
-  // 统一生成徽章、悬浮提示与速览卡片的状态数据
+  // Unified generation of state data for badges, hover tooltips, and quick-view cards
   function resolveDisplayStatus(d, session) {
     const ec = d?.errorClassification;
     let kind = ec?.kind || (d?.exceeded ? 'context_overflow' : d?.network ? 'network_error' : d?.error ? 'unknown' : 'none');
 
-    // 如果没有显示分类但存在明确标志
+    // If no display category is set but an explicit flag exists
     if (d?.exceeded) kind = 'context_overflow';
 
     if (kind === 'context_overflow' || d?.exceeded) {
