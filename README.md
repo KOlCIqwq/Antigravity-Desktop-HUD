@@ -1,6 +1,19 @@
+<div align="center">
+
 # Antigravity HUD (`antigravity-hud`)
 
-A HUD toolbar for Google Antigravity that shows live context window usage, generation speed (TTFT and streaming tok/s), model quota, and local token history.
+**A status bar for Google Antigravity that tracks live context usage, generation speed, model quota, and local token history.**
+
+![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f?style=flat-square)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
+
+<br />
+
+<img src="assets/images/hero-showcase.png" alt="Antigravity HUD toolbar pills and Quota, Live, and History panels" width="100%" />
+
+</div>
+
+
 
 ## Let an agent install it for you
 
