@@ -1,0 +1,24 @@
+{
+  "name": "antigravity-hud",
+  "version": "1.0.0",
+  "description": "Antigravity HUD - Minimalist context, speed, quota, and token history toolbar for Antigravity",
+  "main": "cli.js",
+  "bin": {
+    "antigravity-hud": "./cli.js",
+    "context-bar": "./cli.js"
+  },
+  "engines": {
+    "node": ">=22.4.0"
+  },
+  "scripts": {
+    "build:renderer": "node scripts/build-renderer.js",
+    "pretest": "node scripts/build-renderer.js",
+    "test": "node --test test/*.test.js",
+    "check": "node cli.js check",
+    "install-bar": "node cli.js install",
+    "live": "node cli.js live",
+    "status": "node cli.js status",
+    "restore": "node cli.js restore"
+  },
+  "license": "MIT"
+}
