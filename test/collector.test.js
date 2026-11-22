@@ -90,6 +90,37 @@ test('collectCrossSessionInsights merges brain/ sessions even when trajectorySum
     assert.equal(res.sessions.length, 2);
     const s2 = res.sessions.find(s => s.cascadeId === cid2);
     assert.equal(s2.title, 'Summary Tab Title');
+    assert.equal(s2.isSubagent, false);
+
+    const cid3 = '33333333-3333-3333-3333-333333333333';
+    const logDir3 = path.join(tmp, 'brain', cid3, '.system_generated', 'logs');
+    fs.mkdirSync(logDir3, { recursive: true });
+    fs.writeFileSync(path.join(logDir3, 'transcript.jsonl'), JSON.stringify({
+      type: 'SYSTEM_MESSAGE',
+      content: `[Message] timestamp=2026-11-22T12:00:00Z sender=${cid1} priority=MESSAGE_PRIORITY_HIGH content=Subagent task description`,
+      usage: { inputTokens: 50, outputTokens: 10 }
+    }) + '\n');
+
+    const res2 = await insights.collectCrossSessionInsights('', {
+      agDir: tmp,
+      force: true,
+      trajectorySummaries: { [cid1]: { stepCount: 2, lastModifiedTime: '2026-11-22T10:00:00Z' } }
+    });
+    const s3 = res2.sessions.find(s => s.cascadeId === cid3);
+    assert.equal(s3.isSubagent, true);
+    assert.equal(s3.parentCascadeId, cid1);
+
+    // When conversations/ store exists, sessions missing both .db/.pb and trajectorySummaries are treated as deleted
+    const convDir = path.join(tmp, 'conversations');
+    fs.mkdirSync(convDir, { recursive: true });
+    fs.writeFileSync(path.join(convDir, `${cid2}.pb`), '');
+    const res3 = await insights.collectCrossSessionInsights('', {
+      agDir: tmp,
+      force: true,
+      trajectorySummaries: { [cid1]: { stepCount: 2, lastModifiedTime: '2026-11-22T10:00:00Z' } }
+    });
+    assert.equal(res3.sessions.some(s => s.cascadeId === cid2), true);
+    assert.equal(res3.sessions.some(s => s.cascadeId === cid3), false);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

@@ -36,14 +36,32 @@ function scanTranscriptSummaryStats(transcriptPath) {
     let callsCount = 0;
     let modelLabel = '';
     let extractedTitle = '';
+    let hasUserInput = false;
+    let systemParentId = '';
+    let systemFallbackTitle = '';
 
     for (const line of raw.split(/\r?\n/)) {
       if (!line) continue;
-      if (!extractedTitle && (line.includes('"USER_INPUT"') || line.includes('<USER_REQUEST>') || line.includes('"userInput"'))) {
+      if (line.includes('"USER_INPUT"') || line.includes('<USER_REQUEST>') || line.includes('"userInput"')) {
+        hasUserInput = true;
+        if (!extractedTitle) {
+          try {
+            const entry = JSON.parse(line);
+            const content = entry.content || entry.userInput?.userResponse || (entry.userInput?.items || []).map(x => x.text || '').join('\n') || '';
+            extractedTitle = extractCleanSessionTitle(content);
+          } catch {}
+        }
+      }
+      if (!hasUserInput && !systemFallbackTitle && line.includes('"SYSTEM_MESSAGE"')) {
         try {
           const entry = JSON.parse(line);
-          const content = entry.content || entry.userInput?.userResponse || (entry.userInput?.items || []).map(x => x.text || '').join('\n') || '';
-          extractedTitle = extractCleanSessionTitle(content);
+          const c = String(entry.content || '');
+          const sm = c.match(/sender=([0-9a-f-]{36})/i);
+          if (sm && sm[1] && !systemParentId) systemParentId = sm[1];
+          const cm = c.match(/content=([\s\S]+)/);
+          if (cm && cm[1] && !c.includes('[Notice] All your subagents')) {
+            systemFallbackTitle = extractCleanSessionTitle(cm[1]);
+          }
         } catch {}
       }
 
@@ -91,7 +109,7 @@ function scanTranscriptSummaryStats(transcriptPath) {
       } catch {}
     }
 
-    const data = { toolCounts, commandCounts, skillCounts, title: extractedTitle, tokens, costUSD, callsCount, modelLabel, lastModifiedMs: st.mtimeMs, createdAtMs: st.birthtimeMs || st.mtimeMs };
+    const data = { toolCounts, commandCounts, skillCounts, title: extractedTitle || systemFallbackTitle, systemParentId: hasUserInput ? '' : systemParentId, tokens, costUSD, callsCount, modelLabel, lastModifiedMs: st.mtimeMs, createdAtMs: st.birthtimeMs || st.mtimeMs };
     transcriptInsightsCache.set(transcriptPath, { mtimeMs: st.mtimeMs, size: st.size, data });
     return data;
   } catch {
@@ -116,6 +134,18 @@ function resolveTranscriptPath(cid, agDir, agCliDir) {
     if (fs.existsSync(p1)) return p1;
     const p2 = path.join(base, 'brain', cid, 'transcript.jsonl');
     if (fs.existsSync(p2)) return p2;
+  }
+  return null;
+}
+
+function resolveDbMetaForSession(cid, agDir, agCliDir) {
+  if (typeof collector.loadConversationDbMeta !== 'function') return null;
+  for (const base of [agDir, agCliDir]) {
+    if (!base) continue;
+    const dbPath = path.join(base, 'conversations', `${cid}.db`);
+    if (fs.existsSync(dbPath)) {
+      try { return collector.loadConversationDbMeta(dbPath, cid); } catch {}
+    }
   }
   return null;
 }
@@ -216,18 +246,42 @@ async function collectCrossSessionInsights(origin, options = {}) {
   ]);
 
   // Always include local brain session directories alongside live RPC trajectories and ledger calls
+  const existingConvIds = new Set();
+  let hasConvStore = false;
   for (const baseDir of [agDir, agCliDir]) {
     if (!baseDir) continue;
+    const convDir = path.join(baseDir, 'conversations');
+    if (fs.existsSync(convDir)) {
+      try {
+        for (const f of fs.readdirSync(convDir)) {
+          if (f.endsWith('.db') || f.endsWith('.pb')) {
+            hasConvStore = true;
+            existingConvIds.add(f.slice(0, -3).toLowerCase());
+          }
+        }
+      } catch {}
+    }
     const brainDir = path.join(baseDir, 'brain');
     if (fs.existsSync(brainDir)) {
       try {
         const ents = fs.readdirSync(brainDir, { withFileTypes: true });
         for (const e of ents) {
           if (e.isDirectory() && /^[0-9a-f-]{36}$/i.test(e.name)) {
-            allSessionIds.add(e.name);
+            if (!hasConvStore || trajectorySummaries?.[e.name] || existingConvIds.has(e.name.toLowerCase())) {
+              allSessionIds.add(e.name);
+            }
           }
         }
       } catch {}
+    }
+  }
+
+  // Filter out deleted conversations (removed from conversations/ and absent from live RPC)
+  if (hasConvStore) {
+    for (const cid of Array.from(allSessionIds)) {
+      if (!trajectorySummaries?.[cid] && !existingConvIds.has(cid.toLowerCase())) {
+        allSessionIds.delete(cid);
+      }
     }
   }
 
@@ -243,14 +297,24 @@ async function collectCrossSessionInsights(origin, options = {}) {
     const sum = trajectorySummaries?.[cid] || {};
     const agg = callsBySession.get(cid) || { input: 0, cacheRead: 0, output: 0, total: 0, costUSD: 0, callsCount: 0, lastTs: 0, modelLabel: '' };
     const ann = readAnnotationMeta(cid, agDir, agCliDir);
+    const dbMeta = resolveDbMetaForSession(cid, agDir, agCliDir);
+    const parentCascadeId = (dbMeta?.parentCascadeId && dbMeta.parentCascadeId !== cid) ? dbMeta.parentCascadeId : null;
+    const subagentRole = String(dbMeta?.subagentRole || '').trim();
+    const subagentType = String(dbMeta?.subagentType || '').trim();
+    const isSubagent = Boolean(parentCascadeId || subagentRole || subagentType);
     const createdMs = parseTimestampMs(sum.createdTime) ?? parseTimestampMs(sum.trajectoryMetadata?.createdAt) ?? agg.lastTs ?? ann.lastViewMs ?? null;
     const modifiedMs = parseTimestampMs(sum.lastModifiedTime) ?? agg.lastTs ?? ann.lastViewMs ?? createdMs ?? null;
-    const title = String(sum.annotations?.title || sum.summary || ann.title || '').trim() || cid.slice(0, 8);
+    const title = String(sum.annotations?.title || sum.summary || ann.title || subagentRole || '').trim() || cid.slice(0, 8);
+    const stepCount = Number(sum.stepCount || 0) || (dbMeta?.stepMetaMap?.size || 0);
     sessions.push({
       cascadeId: cid,
       title,
-      stepCount: Number(sum.stepCount || 0) || 0,
+      stepCount,
       status: String(sum.status || '').replace(/^CASCADE_RUN_STATUS_/, '').toLowerCase() || 'idle',
+      isSubagent,
+      parentCascadeId,
+      subagentRole,
+      subagentType,
       createdAtMs: createdMs,
       lastModifiedMs: modifiedMs,
       workspace: String(sum.trajectoryMetadata?.projectId || ''),
@@ -287,6 +351,10 @@ async function collectCrossSessionInsights(origin, options = {}) {
     if (!sess.lastModifiedMs || sess.lastModifiedMs === 0) {
       sess.lastModifiedMs = tsStats.lastModifiedMs || 0;
       sess.createdAtMs = tsStats.createdAtMs || sess.lastModifiedMs;
+    }
+    if (!sess.isSubagent && tsStats.systemParentId && tsStats.systemParentId !== sess.cascadeId) {
+      sess.isSubagent = true;
+      sess.parentCascadeId = tsStats.systemParentId;
     }
     if (tsStats.title && (!sess.title || /^[0-9a-f-]{36}$/i.test(sess.title) || sess.title.startsWith('session-') || sess.title === sess.cascadeId.slice(0, 8))) {
       sess.title = tsStats.title;

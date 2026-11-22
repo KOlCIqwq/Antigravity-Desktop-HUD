@@ -50,7 +50,8 @@
     insightsRange: '30d',
     insightsSearch: '',
     insightsSort: 'recent',
-    insightsTagFilter: null
+    insightsTagFilter: null,
+    expandedSessionParents: new Set()
   };
 
   function escHtml(val) {
@@ -651,27 +652,18 @@
 
   function jumpToAgySession(cid) {
     if (!cid) return;
-    if (/^\/c\/[a-f\d-]{36}/i.test(location.pathname)) {
+    const targetPath = `/c/${cid}`;
+    const link = document.querySelector(`a[href*="${cid}"], [data-cascade-id="${cid}"], [data-conversation-id="${cid}"]`);
+    if (link && typeof link.click === 'function') {
       closeInspector();
-      const targetPath = `/c/${cid}`;
-      if (location.pathname !== targetPath) {
-        try {
-          globalThis.history.pushState(null, '', targetPath);
-          globalThis.dispatchEvent(new PopStateEvent('popstate'));
-        } catch {}
-        setTimeout(() => {
-          if (location.pathname !== targetPath) {
-            try { location.assign(targetPath); } catch {}
-          }
-        }, 120);
-      }
+      link.click();
       return;
     }
-    const sel = `[data-cascade-id="${cid}"], [data-conversation-id="${cid}"], a[href*="${cid}"]`;
-    const match = document.querySelector(sel);
-    if (match && typeof match.click === 'function') {
+    if (/^https?:\/\/(?:127\.0\.0\.1|localhost):\d+$/i.test(location.origin) || /^\/c\/[a-f\d-]{36}/i.test(location.pathname)) {
       closeInspector();
-      match.click();
+      if (location.pathname !== targetPath) {
+        location.assign(targetPath);
+      }
       return;
     }
     openInspector({ cascadeId: cid, tab: 'live', sub: 'overview', force: true, keepTarget: true });
@@ -2141,7 +2133,24 @@
       return `<button class="insp-filter-chip ${act ? 'active' : ''}" type="button" data-ins-tag="${escHtml(kind)}:${escHtml(it.name)}">${escHtml(it.name)} (${it.count})</button>`;
     }).join('');
 
-    const sessRows = sessions.slice(0, 35).map(s => {
+    const subagentsByParent = new Map();
+    const mainSessions = [];
+    for (const s of sessions) {
+      if (s.isSubagent && s.parentCascadeId) {
+        const pk = s.parentCascadeId.toLowerCase();
+        if (!subagentsByParent.has(pk)) subagentsByParent.set(pk, []);
+        subagentsByParent.get(pk).push(s);
+      } else {
+        mainSessions.push(s);
+      }
+    }
+    const visibleMainSet = new Set(mainSessions.map(s => String(s.cascadeId || '').toLowerCase()));
+    const orphanSubagents = [];
+    for (const [pk, list] of subagentsByParent.entries()) {
+      if (!visibleMainSet.has(pk)) orphanSubagents.push(...list);
+    }
+
+    const renderSessionRow = (s, isNested = false) => {
       const shortCid = s.cascadeId ? s.cascadeId.slice(0, 8) : '';
       const wsName = s.workspace ? basenameOf(s.workspace) : '';
       const metaParts = [
@@ -2152,15 +2161,40 @@
         fmtRelTime(s.lastModifiedMs)
       ].filter(Boolean).join(' · ');
 
-      return `<button class="insp-session-btn" type="button" data-jump-cid="${escHtml(s.cascadeId)}">
+      const rowAttr = s.isSubagent
+        ? `data-inspect-cid="${escHtml(s.cascadeId)}"`
+        : `data-jump-cid="${escHtml(s.cascadeId)}"`;
+      const subBadge = s.isSubagent
+        ? `<span class="insp-chip" style="margin-right:6px;vertical-align:middle">Subagent</span>`
+        : '';
+      const rightInspectBtn = s.isSubagent
+        ? ''
+        : `<span class="insp-mini-btn" role="button" tabindex="0" data-inspect-cid="${escHtml(s.cascadeId)}">${escHtml(t('inspector.inspectSession'))}</span>`;
+      const nestedStyle = isNested ? 'padding-left:28px;background:var(--insp-surface-inset);border-top:1px solid var(--insp-hairline);' : '';
+
+      return `<button class="insp-session-btn" type="button" ${rowAttr} style="${nestedStyle}">
         <div style="min-width:0;flex:1">
-          <div class="insp-row-title" style="font-weight:600;font-size:12.5px">${escHtml(s.title)}</div>
+          <div class="insp-row-title" style="font-weight:${isNested ? '500' : '600'};font-size:${isNested ? '12px' : '12.5px'}">${subBadge}${escHtml(s.title)}</div>
           <div class="insp-row-meta" style="font-size:11px">${escHtml(metaParts)}</div>
         </div>
         <span class="insp-row-meta" style="flex-shrink:0;white-space:nowrap">${short(s.tokens?.total)} · ${fmtUsd(s.estimatedCostUSD)} · ${fmtPct1(s.cacheHitRate)}</span>
-        <span class="insp-mini-btn" role="button" tabindex="0" data-inspect-cid="${escHtml(s.cascadeId)}">${escHtml(t('inspector.inspectSession'))}</span>
+        ${rightInspectBtn}
       </button>`;
-    }).join('');
+    };
+
+    const sessRows = mainSessions.slice(0, 35).map(s => {
+      const subs = subagentsByParent.get(String(s.cascadeId || '').toLowerCase()) || [];
+      const rowHtml = renderSessionRow(s, false);
+      if (!subs.length) return rowHtml;
+      const exp = inspectorState.expandedSessionParents.has(s.cascadeId);
+      const subTok = subs.reduce((a, x) => a + (x.tokens?.total || 0), 0);
+      const toggleHtml = `<button class="insp-row-head" type="button" data-toggle-subs="${escHtml(s.cascadeId)}" style="width:100%;padding:5px 14px 6px 28px;border-top:1px solid var(--insp-hairline);background:var(--insp-surface-inset);font-size:11px;color:var(--ag-text-muted);justify-content:space-between">
+        <span>${exp ? '▾' : '▸'} Subagents (${subs.length})</span>
+        <span>${short(subTok)} tok</span>
+      </button>`;
+      const subRowsHtml = exp ? subs.map(sub => renderSessionRow(sub, true)).join('') : '';
+      return `${rowHtml}${toggleHtml}${subRowsHtml}`;
+    }).join('') + (orphanSubagents.length ? orphanSubagents.slice(0, 15).map(sub => renderSessionRow(sub, false)).join('') : '');
 
     pane.innerHTML = `<div class="insp-tab-enter">
       <div class="insp-toolbar">
@@ -2190,9 +2224,16 @@
       </div>
     </div>`;
 
+    const reRenderSess = () => { if (pane.dataset) pane.dataset.tabAnim = '0'; renderHistorySessions(pane); };
+    pane.querySelectorAll('[data-toggle-subs]').forEach(b => b.addEventListener('click', () => {
+      const pid = b.getAttribute('data-toggle-subs');
+      if (inspectorState.expandedSessionParents.has(pid)) inspectorState.expandedSessionParents.delete(pid);
+      else inspectorState.expandedSessionParents.add(pid);
+      reRenderSess();
+    }));
     pane.querySelectorAll('[data-ins-range]').forEach(b => b.addEventListener('click', () => {
       inspectorState.insightsRange = b.getAttribute('data-ins-range');
-      renderHistorySessions(pane);
+      reRenderSess();
     }));
     el('insp-ins-search')?.addEventListener('input', (e) => {
       inspectorState.insightsSearch = e.target.value || '';
