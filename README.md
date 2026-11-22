@@ -1,41 +1,57 @@
 # Antigravity HUD (`antigravity-hud`)
 
-A zero-dependency HUD toolbar for Google Antigravity that shows live context window usage, generation speed (TTFT and streaming tok/s), model quota, and local token history.
+A HUD toolbar for Google Antigravity that shows live context window usage, generation speed (TTFT and streaming tok/s), model quota, and local token history.
+
+## Let an agent install it for you
+
+Paste this prompt into your AI coding agent (Antigravity, Claude Code, Cursor, or Codex):
+
+```text
+Install Antigravity HUD (`antigravity-hud`) for me:
+1. Check `node -v` and confirm Node.js is >= 22.4.0 (stop and tell me if it isn't).
+2. If you're not already inside the repo, clone https://github.com/KOlCIqwq/Antigravity-HUD.git and `cd` into it.
+3. Run `node cli.js check` to locate Antigravity's `app.asar` (if not found automatically, locate it and pass `--path <path-to-app.asar>`).
+4. Run `node cli.js install` to back up and patch `app.asar`. If it fails because Antigravity is running and locking the file, ask me to close Antigravity and retry.
+5. Run `node cli.js status` to verify the installation, then summarize the result so I know when to restart Antigravity.
+```
+
+> [!TIP]
+> Prefer not to modify files on disk? Tell the agent to launch Antigravity with `--remote-debugging-port=9222` and run `node cli.js live` instead of `install`.
 
 ## Requirements
 
-- Node.js `>= 22.4.0` (uses the built-in `node:sqlite`, `node:test`, and WebSocket/fetch APIs)
+- Node.js `>= 22.4.0` (uses built-in `node:sqlite`, `node:test`, and native WebSocket/fetch APIs)
 - Google Antigravity desktop app
-
-No `npm install` is needed. There are no external npm dependencies.
 
 ## Installation
 
 Clone the repository:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/<owner>/antigravity-context-viewer.git
 cd antigravity-context-viewer
 ```
 
-You can either patch Antigravity's `app.asar` permanently (survives restarts until Antigravity updates) or inject live over Chrome DevTools Protocol (CDP) without modifying files on disk.
+Choose between permanent patching or live injection over CDP.
 
 ### Option 1: Permanent install (patches `app.asar`)
 
 1. Close Antigravity completely.
-2. Check that `app.asar` is detected:
+2. Verify path detection:
 
 ```bash
 node cli.js check
 ```
 
-If Antigravity is installed in a non-standard location, pass `--path <path-to-app.asar>`.
+If Antigravity is in a custom path, pass `--path <path-to-app.asar>`.
 
-3. Install the toolbar (automatically backs up the original `app.asar` to `~/.antigravity-context-bar/backups/app.asar.bak`):
+3. Install the toolbar:
 
 ```bash
 node cli.js install
 ```
+
+The installer automatically backs up the original `app.asar` to `~/.antigravity-context-bar/backups/app.asar.bak`.
 
 4. Reopen Antigravity.
 
@@ -45,60 +61,45 @@ To uninstall and restore the original `app.asar`:
 node cli.js restore
 ```
 
-### Option 2: Live injection (no disk patch, via CDP)
+### Option 2: Live injection (CDP, no files modified)
 
-1. Launch Antigravity with remote debugging enabled:
+1. Launch Antigravity with debugging enabled:
 
 ```bash
 antigravity --remote-debugging-port=9222
 ```
 
-2. Run the live injector and keep the terminal open (it runs a local HTTP bridge on `127.0.0.1`):
+2. Start the live injector bridge:
 
 ```bash
 node cli.js live
 ```
 
-Pass `--port <cdpPort>` if Antigravity is listening on a different CDP port. Press `Ctrl+C` to stop the bridge.
+Pass `--port <cdpPort>` if using a non-default port. Press `Ctrl+C` to detach.
 
 ### Global CLI (optional)
 
-Link the `antigravity-hud` binary globally:
+Link the command globally:
 
 ```bash
 npm link
 ```
 
-Then run `antigravity-hud check`, `antigravity-hud install`, `antigravity-hud status`, `antigravity-hud live`, or `antigravity-hud restore` from any directory.
+Then run `antigravity-hud <command>` from any directory.
 
 ## CLI commands
 
 | Command | Description |
 |---|---|
-| `node cli.js check [--path <app.asar>]` | Verify `app.asar` path detection |
-| `node cli.js status [--path <app.asar>] [--port <cdpPort>]` | Show patch status, backup status, and active CDP pages |
-| `node cli.js install [--path <app.asar>]` | Back up and patch `app.asar` |
-| `node cli.js restore [--path <app.asar>]` | Restore `app.asar` from backup (or strip injected blocks in-place) |
-| `node cli.js live [--port <cdpPort>]` | Inject into running Antigravity windows over CDP and start the local bridge |
-
-## Project layout
-
-- `cli.js` - CLI entry point (`check`, `status`, `install`, `live`, `restore`)
-- `installer.js` - `app.asar` patching, backup/restore, and CDP live injection
-- `asar.js` - Zero-dependency ASAR reader/writer
-- `cdp.js` - CDP discovery, WebSocket client, and daemon hub discovery
-- `main-hook.js` - Electron main-process IPC handlers and window injection
-- `live-server.js` - Local HTTP bridge used by `live` mode
-- `core.js`, `collector.js`, `insights.js` - CommonJS loaders for `src/core`, `src/collector`, and `src/insights`
-- `scripts/build-renderer.js` - Assembles `src/core` and `src/renderer` into the injected bundle
-- `src/core/` - Pure domain logic (token counting, model resolution, pricing, plans, scales, quota, experience score)
-- `src/collector/` - Local data collection (RPC, pricing ledger, account attribution, settings, quota host, WSL/local paths, SQLite metadata, history/timeline scanners, updater)
-- `src/insights/` - Session deep-dive and cross-session analytics
-- `src/renderer/` - Shadow-DOM UI (`styles.css`, `template.html`, `i18n.js`, `colors.js`, `budget.js`, `dropdown.js`, `heatmap.js`, `inspector.js`, and `main/`)
+| `node cli.js check [--path <path>]` | Verify Antigravity `app.asar` path |
+| `node cli.js status [--path <path>] [--port <port>]` | Show patch status, backup file, and active CDP windows |
+| `node cli.js install [--path <path>]` | Back up and patch `app.asar` |
+| `node cli.js restore [--path <path>]` | Restore original `app.asar` from backup |
+| `node cli.js live [--port <port>]` | Inject via CDP without disk modifications |
 
 ## Development and testing
 
-Verify bundle assembly and run the test suite:
+Rebuild the renderer bundle and run the test suite:
 
 ```bash
 npm test
