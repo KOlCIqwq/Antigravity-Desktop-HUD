@@ -11,8 +11,10 @@ Install Antigravity HUD (`antigravity-hud`) for me:
 1. Check `node -v` and confirm Node.js is >= 22.4.0 (stop and tell me if it isn't).
 2. If you're not already inside the repo, clone https://github.com/KOlCIqwq/Antigravity-HUD.git and `cd` into it.
 3. Run `node cli.js check` to locate Antigravity's `app.asar` (if not found automatically, locate it and pass `--path <path-to-app.asar>`).
-4. Run `node cli.js install` to back up and patch `app.asar`. If it fails because Antigravity is running and locking the file, ask me to close Antigravity and retry.
-5. Run `node cli.js status` to verify the installation, then summarize the result so I know when to restart Antigravity.
+4. Run `node cli.js install` to back up and patch `app.asar`. If it fails because `app.asar` is locked by a running Antigravity process:
+   - If you are an external agent (Claude Code, Cursor, Codex), ask me to close Antigravity and retry.
+   - If you are running inside Antigravity itself, give me the exact `node "<repo-path>/cli.js" install` command to run in my terminal after I close Antigravity.
+5. Once installed, run `node cli.js status` to verify and summarize the result so I know when to restart Antigravity.
 ```
 
 > [!TIP]
