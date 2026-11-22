@@ -1602,7 +1602,7 @@ const PANEL_I18N = {
   'inspector.bucket.tools': { 'zh-CN': '工具定义', 'zh-TW': '工具定義', en: 'Tool Definitions' },
   'inspector.bucket.skills': { 'zh-CN': '技能注入', 'zh-TW': '技能注入', en: 'Skills' },
   'inspector.bucket.subagents': { 'zh-CN': '子代理说明', 'zh-TW': '子代理說明', en: 'Subagents' },
-  'inspector.bucket.plugins': { 'zh-CN': '插件说明', 'zh-TW': '外掛說明', en: 'Plugins' },
+  'inspector.bucket.plugins': { 'zh-CN': '插件 / MCP', 'zh-TW': '外掛 / MCP', en: 'Plugins / MCPs' },
   'inspector.bucket.chatMessages': { 'zh-CN': '对话与工具历史', 'zh-TW': '對話與工具歷史', en: 'Chat & Tools' },
   'inspector.trendTitle': { 'zh-CN': '上下文增长趋势', 'zh-TW': 'Context 增長趨勢', en: 'Context Trend' },
   'inspector.step': { 'zh-CN': '按请求', 'zh-TW': '按請求', en: 'Step' },

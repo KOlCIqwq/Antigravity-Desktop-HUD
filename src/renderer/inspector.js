@@ -295,6 +295,7 @@
         }
       });
       const resObj = out?.result;
+      if (cid !== (inspectorState.targetCascadeId || state.route)) return null;
       if (resObj?.ok && resObj.data) {
         inspectorState.deepDive = resObj.data;
         inspectorState.pinnedTrendIdx = null;
@@ -539,13 +540,19 @@
     if (typeof hideQuotaTooltip === 'function') hideQuotaTooltip();
     closeColorPicker(true);
     if (opts.cascadeId) {
-      if (opts.cascadeId !== inspectorState.targetCascadeId) inspectorState.deepDive = null;
+      if (opts.cascadeId !== inspectorState.targetCascadeId) {
+        inspectorState.deepDive = null;
+        inspectorState.pinnedTrendIdx = null;
+      }
       inspectorState.targetCascadeId = opts.cascadeId;
+    } else if (!opts.keepTarget && state.route) {
+      if (inspectorState.targetCascadeId !== state.route || (inspectorState.deepDive && inspectorState.deepDive.cascadeId !== state.route)) {
+        inspectorState.deepDive = null;
+        inspectorState.pinnedTrendIdx = null;
+      }
+      inspectorState.targetCascadeId = state.route;
     } else if (!inspectorState.targetCascadeId && state.route) {
       inspectorState.targetCascadeId = state.route;
-    } else if (state.route && inspectorState.deepDive && inspectorState.deepDive.cascadeId !== state.route && !opts.keepTarget) {
-      inspectorState.targetCascadeId = state.route;
-      inspectorState.deepDive = null;
     }
     if (savedHostZIndex === null && host?.style) {
       savedHostZIndex = host.style.zIndex || '';
@@ -592,7 +599,7 @@
       if (inspectorState.open) return;
       modal.hidden = true;
       modal.classList?.remove?.('is-instant');
-      inspectorState.targetCascadeId = state.route || null;
+      inspectorState.targetCascadeId = null;
       inspectorState.deepDive = null;
       if (savedHostZIndex !== null && host?.style) {
         host.style.zIndex = savedHostZIndex;
@@ -696,11 +703,54 @@
     if (!dd) { renderInspectorEmpty(pane, true); return; }
 
     const st = dd.stats || {};
+    const isTurn = inspectorState.trendGranularity === 'turn';
+    const isDelta = inspectorState.trendMode === 'delta';
+    const series = isTurn ? (dd.trend?.byTurn || []) : (dd.trend?.byStep || []);
+    const pinnedIdx = (inspectorState.pinnedTrendIdx != null && inspectorState.pinnedTrendIdx < series.length)
+      ? inspectorState.pinnedTrendIdx
+      : (series.length ? series.length - 1 : null);
+    const activePt = (pinnedIdx != null && series[pinnedIdx]) ? series[pinnedIdx] : (series.length ? series[series.length - 1] : null);
+    const isViewingPinned = Boolean(activePt && inspectorState.pinnedTrendIdx != null && pinnedIdx !== (series.length - 1));
+
     const comp = dd.currentComposition || {};
-    const buckets = comp.buckets || {};
-    const maxCtx = comp.maxContextTokens || state.latest?.budget || 0;
-    const usedCtx = comp.estimatedTokensUsed || state.latest?.actual || 0;
+    const ptBuckets = activePt?.buckets || {};
+    const ptBucketSum = Object.values(ptBuckets).reduce((acc, v) => acc + (Number(v) || 0), 0);
+    const usedCtx = isViewingPinned
+      ? (activePt.estimatedTokensUsed ?? comp.estimatedTokensUsed ?? state.latest?.actual ?? 0)
+      : (comp.estimatedTokensUsed || state.latest?.actual || 0);
+    const maxCtx = (isViewingPinned ? activePt.maxContextTokens : null) || comp.maxContextTokens || state.latest?.budget || 0;
+    const curBuckets = comp.buckets || {};
+    const staticSum = ['systemPrompt', 'tools', 'skills', 'subagents', 'plugins']
+      .reduce((acc, k) => acc + (Number(curBuckets[k]) || 0), 0);
+    let buckets = curBuckets;
+    let compSource = comp.source;
+    if (isViewingPinned) {
+      if (ptBucketSum > 0) {
+        buckets = ptBuckets;
+        compSource = 'official';
+      } else if (staticSum > 0) {
+        // Historical calls often omit tokenBreakdown; preserve static prompt overhead and attribute the remainder to Chat & Tools
+        const scale = usedCtx < staticSum ? (usedCtx / staticSum) : 1;
+        buckets = {
+          systemPrompt: Math.round((Number(curBuckets.systemPrompt) || 0) * scale),
+          tools: Math.round((Number(curBuckets.tools) || 0) * scale),
+          skills: Math.round((Number(curBuckets.skills) || 0) * scale),
+          subagents: Math.round((Number(curBuckets.subagents) || 0) * scale),
+          plugins: Math.round((Number(curBuckets.plugins) || 0) * scale),
+          chatMessages: Math.max(0, usedCtx - staticSum)
+        };
+        compSource = comp.source || 'official';
+      } else {
+        buckets = { systemPrompt: 0, tools: 0, skills: 0, subagents: 0, plugins: 0, chatMessages: usedCtx };
+        compSource = 'estimated';
+      }
+    }
     const pct = maxCtx > 0 ? Math.min(100, (usedCtx / maxCtx) * 100) : null;
+    const compTag = isViewingPinned
+      ? (isTurn
+        ? (activePt.turnIndex != null ? `T${activePt.turnIndex}` : `#${pinnedIdx + 1}`)
+        : `${activePt.primaryStepIndex != null ? `#${activePt.primaryStepIndex}` : `#${pinnedIdx + 1}`}${activePt.turnIndex != null ? ` · T${activePt.turnIndex}` : ''}`)
+      : `${fmt(st.turns)}T · ${fmt(st.steps)}S`;
 
     const bucketDefs = [
       ['systemPrompt', t('inspector.bucket.systemPrompt')],
@@ -721,7 +771,7 @@
 
     const legendHtml = bucketDefs.map(([k, lbl]) => {
       const val = Number(buckets[k]) || 0;
-      if (!val && comp.source === 'estimated' && k !== 'chatMessages') return '';
+      if (!val && compSource === 'estimated' && k !== 'chatMessages') return '';
       return `<div class="insp-legend-item">
         <span class="insp-dot" style="background:${getInspectorColor(k)}"></span>
         <span class="insp-legend-k">${escHtml(lbl)}</span>
@@ -736,12 +786,6 @@
     const eScoreStr = spEval?.efficiency?.score != null ? `${spEval.efficiency.score} / 100` : '—';
 
     // Trend with rising animated bars + hover floating tooltip
-    const isTurn = inspectorState.trendGranularity === 'turn';
-    const isDelta = inspectorState.trendMode === 'delta';
-    const series = isTurn ? (dd.trend?.byTurn || []) : (dd.trend?.byStep || []);
-    const pinnedIdx = (inspectorState.pinnedTrendIdx != null && inspectorState.pinnedTrendIdx < series.length)
-      ? inspectorState.pinnedTrendIdx
-      : (series.length ? series.length - 1 : null);
     const vals = series.map(pt => pt.estimatedTokensUsed || 0);
     const minVal = vals.length ? Math.min(...vals) : 0;
     const maxVal = vals.length ? Math.max(...vals) : 1;
@@ -909,7 +953,6 @@
       </div>`;
     }
 
-    const activePt = (pinnedIdx != null && series[pinnedIdx]) ? series[pinnedIdx] : (series.length ? series[series.length - 1] : null);
     let stepDetailHtml = '';
     if (activePt) {
       const isLatest = pinnedIdx == null || pinnedIdx === (series.length - 1);
@@ -978,11 +1021,14 @@
     pane.innerHTML = `<div class="insp-tab-enter">
       <div class="insp-card insp-card-pad">
         <div class="insp-card-head">
-          <span class="insp-card-title">${escHtml(t('inspector.compositionTitle'))}</span>
-          <span class="insp-pill">${fmt(st.turns)}T · ${fmt(st.steps)}S · ${short(usedCtx)}${maxCtx ? ` / ${short(maxCtx)} (${pct.toFixed(1)}%)` : ''}</span>
+          <span class="insp-card-title">${escHtml(t('inspector.compositionTitle'))}${isViewingPinned ? ` · ${escHtml(isTurn ? `T${activePt.turnIndex ?? pinnedIdx + 1}` : `#${activePt.primaryStepIndex ?? activePt.stepIndex ?? pinnedIdx + 1}`)}` : ''}</span>
+          <span class="insp-pill">${escHtml(compTag)} · ${short(usedCtx)}${maxCtx && pct != null ? ` / ${short(maxCtx)} (${pct.toFixed(1)}%)` : ''}</span>
         </div>
         <div class="insp-comp-track">${barSegs}</div>
         <div class="insp-legend-grid">${legendHtml}</div>
+        ${(Number(buckets.systemPrompt) || 0) + (Number(buckets.tools) || 0) + (Number(buckets.skills) || 0) + (Number(buckets.subagents) || 0) + (Number(buckets.plugins) || 0) > 0
+          ? `<div class="insp-muted" style="font-size:11px;margin-top:8px;padding-top:6px;border-top:1px solid var(--insp-border-soft)">Sent as input tokens: <b>${short((Number(buckets.systemPrompt) || 0) + (Number(buckets.tools) || 0) + (Number(buckets.skills) || 0) + (Number(buckets.subagents) || 0) + (Number(buckets.plugins) || 0))}</b> prompt overhead (System + Tools + Skills + Subagents + Plugins/MCP) + <b>${short(Number(buckets.chatMessages) || 0)}</b> Chat &amp; Tools</div>`
+          : ''}
       </div>
 
       <div class="insp-kv-grid">
@@ -1137,24 +1183,50 @@
       }).join('');
       bodyHtml = `<div class="insp-dna-ribbon">${ribbon}</div><div class="insp-card"><div class="insp-inset-list">${rows || `<div class="insp-empty">${escHtml(t('inspector.noMatches'))}</div>`}</div></div>`;
     } else {
+      const sectionMeta = (ps) => {
+        const tt = String(ps?.tokenType || '').toUpperCase();
+        if (tt === 'TOKEN_TYPE_SKILLS') return { key: 'skills', label: 'Skill' };
+        if (tt === 'TOKEN_TYPE_SUBAGENTS') return { key: 'subagents', label: 'Subagent' };
+        if (tt === 'TOKEN_TYPE_PLUGINS') return { key: 'plugins', label: 'Plugin / MCP' };
+        return { key: 'systemPrompt', label: 'System' };
+      };
+      const secBucketTotals = { systemPrompt: 0, skills: 0, subagents: 0, plugins: 0 };
+      for (const ps of sectionsAll) {
+        const m = sectionMeta(ps);
+        secBucketTotals[m.key] += (ps.numTokens || 0);
+      }
+      const summarySteps = visibleSteps.filter(s => s.category === 'summary');
+      const latestCp = summarySteps.length ? summarySteps[summarySteps.length - 1] : null;
+      const latestCpTurn = latestCp ? (latestCp.turnIndex ?? 0) : null;
+      const firstTurnIdx = visibleSteps.find(s => (s.turnIndex ?? 0) > 0)?.turnIndex ?? (visibleSteps[0]?.turnIndex ?? 0);
+      const lastTurnIdx = visibleSteps.length ? (visibleSteps[visibleSteps.length - 1].turnIndex ?? 0) : 0;
+      const activeSteps = latestCp
+        ? filteredSteps.filter(s => s.stepIndex >= latestCp.stepIndex)
+        : filteredSteps;
+
       const sysTok = sectionsAll.reduce((a, s) => a + (s.numTokens || 0), 0);
       const toolTok = toolsAll.reduce((a, s) => a + (s.numTokens || 0), 0);
-      const convTok = filteredSteps.reduce((a, s) => a + (s.tokenEstimate || 0), 0);
+      const convTok = activeSteps.reduce((a, s) => a + (s.tokenEstimate || 0), 0);
       const budgetTot = Math.max(1, sysTok + toolTok + convTok);
-      const staticTot = sysTok + toolTok;
-      const sysPct = Math.round((sysTok / budgetTot) * 100);
-      const toolPct = Math.round((toolTok / budgetTot) * 100);
-      const convPct = Math.max(0, 100 - sysPct - toolPct);
+      const breakdownParts = [
+        ['systemPrompt', 'System', secBucketTotals.systemPrompt],
+        ['tools', 'Tools', toolTok],
+        ['skills', 'Skills', secBucketTotals.skills],
+        ['subagents', 'Subagents', secBucketTotals.subagents],
+        ['plugins', 'Plugins/MCP', secBucketTotals.plugins],
+        ['assistant', 'Turns', convTok]
+      ].filter(([, , tok]) => tok > 0);
 
       const promptBudgetHtml = `<div class="insp-card insp-card-pad" style="margin-bottom:8px;display:flex;flex-direction:column;gap:8px">
         <div class="insp-card-head" style="margin-bottom:0">
           <span class="insp-card-title">Prompt Budget Breakdown</span>
-          <span class="insp-row-meta">System ${sysPct}% (${short(sysTok)}) · Tools ${toolPct}% (${short(toolTok)}) · Turns ${convPct}% (${short(convTok)})</span>
+          <span class="insp-pill">${short(sysTok + toolTok + convTok)}</span>
         </div>
         <div style="height:7px;border-radius:999px;overflow:hidden;display:flex;background:var(--insp-surface-inset)">
-          ${sysTok ? `<div style="width:${(sysTok / budgetTot) * 100}%;background:${getInspectorColor('systemPrompt')}" title="System Prompt: ${fmt(sysTok)} tok"></div>` : ''}
-          ${toolTok ? `<div style="width:${(toolTok / budgetTot) * 100}%;background:${getInspectorColor('tools')}" title="Tools: ${fmt(toolTok)} tok"></div>` : ''}
-          ${convTok ? `<div style="width:${(convTok / budgetTot) * 100}%;background:${getInspectorColor('assistant')}" title="Conversation: ${fmt(convTok)} tok"></div>` : ''}
+          ${breakdownParts.map(([clrKey, lbl, tok]) => `<div style="width:${(tok / budgetTot) * 100}%;background:${getInspectorColor(clrKey)}" title="${escHtml(lbl)}: ${fmt(tok)} tok"></div>`).join('')}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11px;color:var(--insp-text-muted)">
+          ${breakdownParts.map(([clrKey, lbl, tok]) => `<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap"><span class="insp-dot" style="background:${getInspectorColor(clrKey)}"></span>${escHtml(lbl)} ${Math.round((tok / budgetTot) * 100)}% (${short(tok)})</span>`).join('')}
         </div>
       </div>`;
 
@@ -1178,9 +1250,12 @@
       const secHtml = sectionsAll.map((ps, idx) => {
         const key = `sec:${idx}`;
         const exp = inspectorState.browserExpandedItems.has(key);
+        const m = sectionMeta(ps);
         if (exp) copyPayloads.set(key, ps.content || '');
         return `<div class="insp-row">
           <button class="insp-row-head" type="button" data-toggle-item="${escHtml(key)}">
+            <span class="insp-dot" style="background:${getInspectorColor(m.key)}"></span>
+            <span class="insp-chip">${escHtml(m.label)}</span>
             <span class="insp-row-title">${escHtml(ps.title)}</span>
             <span class="insp-row-meta">${fmt(ps.numTokens)} tok</span>
           </button>
@@ -1240,10 +1315,11 @@
             ${detailHtml}
           </div>`;
         }
+        const isCompactStep = s.category === 'summary';
         return `<div class="insp-row" data-insp-step="${s.stepIndex}">
           <button class="insp-row-head" type="button" data-toggle-item="${escHtml(key)}">
             <span class="insp-dot" style="background:${getInspectorColor(s.category)}"></span>
-            <span class="insp-chip">${escHtml(s.category)}</span>
+            <span class="insp-chip">${isCompactStep ? 'Summary' : escHtml(s.category)}</span>
             <span class="insp-pos">#${s.stepIndex}</span>
             <span class="insp-row-title">${escHtml(s.title)}</span>
             <span class="key-pill ${statusCls}">${escHtml(s.status)}</span>
@@ -1264,20 +1340,46 @@
       }
 
       const showStatic = inspectorState.browserFilter === 'all' || inspectorState.browserFilter === 'tools';
+      const hasExtraInjected = (secBucketTotals.skills + secBucketTotals.subagents + secBucketTotals.plugins) > 0;
+      const sysGroupLabel = hasExtraInjected
+        ? `${t('inspector.bucket.systemPrompt')} · Skills & MCPs`
+        : t('inspector.bucket.systemPrompt');
       const staticGroupsHtml = showStatic ? `
-        ${inspectorState.browserFilter !== 'tools' ? renderGroup('system', t('inspector.bucket.systemPrompt'), getInspectorColor('systemPrompt'), sectionsAll.length, sysTok, '', secHtml) : ''}
+        ${inspectorState.browserFilter !== 'tools' ? renderGroup('system', sysGroupLabel, getInspectorColor('systemPrompt'), sectionsAll.length, sysTok, '', secHtml) : ''}
         ${renderGroup('tools', t('inspector.bucket.tools'), getInspectorColor('tools'), toolsAll.length, toolTok, toolSortCtrl, toolsHtml)}
       ` : '';
 
-      const turnCardsHtml = turnKeys.slice().reverse().map(tIdx => {
+      const renderTurnCard = (tIdx) => {
         const items = turnGroupsMap.get(tIdx) || [];
         const tokSum = items.reduce((a, s) => a + (s.tokenEstimate || 0), 0);
         const userStep = items.find(s => s.category === 'user');
+        const hasCp = items.some(s => s.category === 'summary');
         const label = tIdx > 0 ? `Turn ${tIdx}` : 'Context Setup';
         const snippet = userStep ? userStep.title : (items[0]?.title || '');
         const rowsHtml = items.map(renderStepRow).join('');
-        return renderGroup(`turn:${tIdx}`, label, getInspectorColor(userStep ? 'user' : 'assistant'), items.length, tokSum, '', rowsHtml, snippet);
-      }).join('');
+        const stateTag = hasCp ? '<span class="insp-chip">Summary</span>' : '';
+        return renderGroup(`turn:${tIdx}`, label, getInspectorColor(userStep ? 'user' : 'assistant'), items.length, tokSum, stateTag, rowsHtml, snippet);
+      };
+
+      const revTurns = turnKeys.slice().reverse();
+      let turnCardsHtml = '';
+      if (latestCp) {
+        const activeTurns = revTurns.filter(t => t >= latestCpTurn);
+        const archivedTurns = revTurns.filter(t => t < latestCpTurn);
+        const archivedRange = archivedTurns.length ? ` · T${firstTurnIdx}–T${latestCpTurn - 1} in summary` : '';
+        const dividerHtml = `<div style="display:flex;align-items:center;gap:8px;margin:6px 2px;font-size:11px;color:var(--insp-text-muted)">
+          <span style="flex:1;height:1px;background:var(--insp-border-soft)"></span>
+          <span>Compacted #${latestCp.stepIndex}${escHtml(archivedRange)}</span>
+          <button class="insp-mini-btn" type="button" data-jump-step="${latestCp.stepIndex}">Summary</button>
+          <span style="flex:1;height:1px;background:var(--insp-border-soft)"></span>
+        </div>`;
+        const railHtml = activeTurns.length
+          ? `<div style="border-left:2px solid #38bdf8;padding-left:8px;margin-left:2px;display:flex;flex-direction:column;gap:6px">${activeTurns.map(renderTurnCard).join('')}</div>`
+          : '';
+        turnCardsHtml = `${railHtml}${dividerHtml}${archivedTurns.map(renderTurnCard).join('')}`;
+      } else {
+        turnCardsHtml = revTurns.map(renderTurnCard).join('');
+      }
 
       bodyHtml = `${promptBudgetHtml}<div class="insp-scroll-list">
         ${staticGroupsHtml}
@@ -1315,6 +1417,9 @@
       if (inspectorState.browserExpandedItems.has(k)) inspectorState.browserExpandedItems.delete(k);
       else inspectorState.browserExpandedItems.add(k);
       reRenderBr();
+    }));
+    pane.querySelectorAll('[data-jump-step]').forEach(b => b.addEventListener('click', () => {
+      jumpToBrowserStep(Number(b.getAttribute('data-jump-step')));
     }));
     pane.querySelectorAll('[data-copy-key]').forEach(b => b.addEventListener('click', (e) => {
       e.stopPropagation();
