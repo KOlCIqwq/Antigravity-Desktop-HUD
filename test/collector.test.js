@@ -125,3 +125,46 @@ test('collectCrossSessionInsights merges brain/ sessions even when trajectorySum
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test('collectTokenHistoryAsync builds hourlyModelMapBySource and summarizeModelUsageWindow buckets 24 hours', async () => {
+  const core = require('../core');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cb-hour-'));
+  const prevState = process.env.AG_METER_STATE_DIR;
+  process.env.AG_METER_STATE_DIR = path.join(tmp, 'state');
+  try {
+    const now = new Date();
+    const h0 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 15, 0);
+    const h1 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 30, 0);
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+
+    const logDir = path.join(tmp, 'brain', '22222222-2222-2222-2222-222222222222', '.system_generated', 'logs');
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.writeFileSync(path.join(logDir, 'transcript.jsonl'), [
+      JSON.stringify({ created_at: h0.toISOString(), chatModel: { model: 'gemini-4-hydrogen', usage: { inputTokens: 1000, cacheReadTokens: 500, outputTokens: 200 } } }),
+      JSON.stringify({ created_at: h1.toISOString(), chatModel: { model: 'gemini-3.8-flash', usage: { inputTokens: 400, outputTokens: 100 } } })
+    ].join('\n'));
+
+    const res = await collector.collectTokenHistoryAsync({ agDir: tmp, force: true });
+    const dayHours = res.hourlyModelMapBySource?.all?.[todayStr] || {};
+    assert.ok(dayHours['09']);
+    assert.ok(dayHours['14']);
+
+    const hourKeys = Array.from({ length: 24 }, (_, h) => pad2(h));
+    const win = core.summarizeModelUsageWindow(dayHours, {
+      bucketKeys: hourKeys,
+      groupBy: 'model',
+      metric: 'total',
+      modelMetaByKey: res.modelMetaByKey
+    });
+    assert.equal(win.days.length, 24);
+    assert.equal(win.days[9].total, 1700);
+    assert.equal(win.days[14].total, 500);
+    assert.equal(win.windowTotalTokens, 2200);
+    assert.ok(win.legend.length >= 2);
+  } finally {
+    if (prevState === undefined) delete process.env.AG_METER_STATE_DIR;
+    else process.env.AG_METER_STATE_DIR = prevState;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

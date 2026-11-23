@@ -44,7 +44,7 @@
     expandedCmds: new Set(),
     eventFilter: 'all',
     // History
-    usageRange: '7d', // '7d' | '30d'
+    usageRange: '7d', // '1d' | '7d' | '30d'
     speedRange: 'all', // '7d' | '30d' | 'all'
     costExpanded: false,
     insightsRange: '30d',
@@ -1889,9 +1889,11 @@
   // =========================================================================
   function renderHistoryUsage(pane) {
     const core = typeof __AGContextMeterCore !== 'undefined' ? __AGContextMeterCore : (globalThis.__AGContextMeterCore || null);
+    const is1d = inspectorState.usageRange === '1d';
     const periodDays = inspectorState.usageRange === '30d' ? 30 : 7;
     const todayStr = typeof formatLocalYmd === 'function' ? formatLocalYmd(new Date()) : new Date().toISOString().slice(0, 10);
     const dailyModelMap = ANTIGRAVITY_TOKEN_DATA.dailyModelMapBySource?.all || ANTIGRAVITY_TOKEN_DATA.dailyModelMap || {};
+    const hourlyModelMap = ANTIGRAVITY_TOKEN_DATA.hourlyModelMapBySource?.all || ANTIGRAVITY_TOKEN_DATA.hourlyModelMap || {};
     const dailyMap = ANTIGRAVITY_TOKEN_DATA.dailyMap || {};
     const sumObj = ANTIGRAVITY_TOKEN_DATA.summary || {};
     const isLight = resolveTheme?.() === 'light';
@@ -1899,8 +1901,10 @@
     let days = [];
     let rawLegend = [];
     if (core && typeof core.summarizeModelUsageWindow === 'function') {
-      const summary = core.summarizeModelUsageWindow(dailyModelMap, {
+      const hourKeys = is1d ? Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')) : null;
+      const summary = core.summarizeModelUsageWindow(is1d ? (hourlyModelMap[todayStr] || {}) : dailyModelMap, {
         periodDays,
+        ...(hourKeys ? { bucketKeys: hourKeys } : {}),
         endDate: todayStr,
         groupBy: 'model',
         metric: 'total',
@@ -1939,10 +1943,10 @@
     const curOut = Number(sumObj.totalOutputTokens || 0);
     const cacheRate = (curIn + curCa) > 0 ? curCa / (curIn + curCa) : null;
 
-    // Stacked bar chart with clean non-wrapping date anchors
-    const anchorSet = periodDays === 30
-      ? new Set([0, 7, 14, 21, Math.max(0, days.length - 1)])
-      : null;
+    // Stacked bar chart with clean non-wrapping date/hour anchors
+    const anchorSet = is1d
+      ? new Set([0, 6, 12, 18, 23])
+      : (periodDays === 30 ? new Set([0, 7, 14, 21, Math.max(0, days.length - 1)]) : null);
     const maxDayTok = Math.max(1, ...days.map(d => Number(d.total) || 0));
     const chartHtml = days.map((d, idx) => {
       const tot = Number(d.total) || 0;
@@ -1952,12 +1956,13 @@
         const segH = Math.max(2, Math.round(((Number(s.tokens) || 0) / Math.max(1, tot)) * barH));
         return `<span class="insp-day-seg" style="height:${segH}px;background:${escHtml(s.color || 'var(--insp-accent)')}"></span>`;
       }).join('') || `<span class="insp-day-seg" style="height:${barH}px;background:var(--insp-accent);opacity:${tot > 0 ? 0.85 : 0.15}"></span>`;
-      const showLbl = periodDays === 7 || anchorSet?.has(idx);
-      const lbl = showLbl ? d.date.slice(5).replace('-', '/') : '';
+      const showLbl = is1d ? anchorSet.has(idx) : (periodDays === 7 || anchorSet?.has(idx));
+      const lbl = showLbl ? (is1d ? `${d.date}h` : d.date.slice(5).replace('-', '/')) : '';
+      const tipTitle = is1d ? `${todayStr} ${d.date}:00` : d.date;
       const tipLines = [short(tot) + ' tok'].concat(
         nonZeroSegs.slice().sort((a, b) => (b.tokens || 0) - (a.tokens || 0)).slice(0, 3).map(s => `${s.label}: ${short(s.tokens)}`)
       );
-      return `<div class="insp-day-col" data-insp-hover="usage" data-tip-title="${escHtml(d.date)}" data-tip-meta="${escHtml(tipLines.join('\n'))}">
+      return `<div class="insp-day-col" data-insp-hover="usage" data-tip-title="${escHtml(tipTitle)}" data-tip-meta="${escHtml(tipLines.join('\n'))}">
         <div class="insp-day-stack insp-bar-rise" style="height:${barH}px;--insp-i:${Math.min(idx, 20)}">${segs}</div>
         <span class="insp-bar-lbl">${escHtml(lbl)}</span>
       </div>`;
@@ -2036,11 +2041,12 @@
         <div class="insp-card-head">
           <span class="insp-card-title">${escHtml(t('inspector.usageByModel'))}</span>
           <div class="insp-segmented">
+            <button class="insp-seg-btn ${inspectorState.usageRange === '1d' ? 'active' : ''}" type="button" data-usage-range="1d">1d</button>
             <button class="insp-seg-btn ${inspectorState.usageRange === '7d' ? 'active' : ''}" type="button" data-usage-range="7d">7d</button>
             <button class="insp-seg-btn ${inspectorState.usageRange === '30d' ? 'active' : ''}" type="button" data-usage-range="30d">30d</button>
           </div>
         </div>
-        <div class="insp-7d-row ${periodDays === 30 ? 'is-30d' : ''}">${chartHtml || `<div class="insp-empty">${escHtml(t('inspector.noEvents'))}</div>`}</div>
+        <div class="insp-7d-row ${is1d || periodDays === 30 ? 'is-30d' : ''}">${chartHtml || `<div class="insp-empty">${escHtml(t('inspector.noEvents'))}</div>`}</div>
         ${legendHtml}
       </div>
 

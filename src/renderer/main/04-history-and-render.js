@@ -406,6 +406,8 @@
       ANTIGRAVITY_TOKEN_DATA.dailyMapBySource = normalized.dailyMapBySource;
       ANTIGRAVITY_TOKEN_DATA.dailyModelMap = normalized.dailyModelMap || {};
       ANTIGRAVITY_TOKEN_DATA.dailyModelMapBySource = normalized.dailyModelMapBySource || (isScopedAccountFilter ? viewPayload.dailyModelMapBySource : payload.dailyModelMapBySource) || null;
+      ANTIGRAVITY_TOKEN_DATA.hourlyModelMap = normalized.hourlyModelMap || {};
+      ANTIGRAVITY_TOKEN_DATA.hourlyModelMapBySource = normalized.hourlyModelMapBySource || (isScopedAccountFilter ? viewPayload.hourlyModelMapBySource : payload.hourlyModelMapBySource) || null;
       ANTIGRAVITY_TOKEN_DATA.modelMetaByKey = normalized.modelMetaByKey || (isScopedAccountFilter ? viewPayload.modelMetaByKey : payload.modelMetaByKey) || null;
       ANTIGRAVITY_TOKEN_DATA.summary = normalized.summary;
       ANTIGRAVITY_TOKEN_DATA.referenceCost = normalized.referenceCost;
@@ -440,6 +442,12 @@
         ANTIGRAVITY_TOKEN_DATA.dailyModelMap = payload.dailyModelMapBySource[activeTokenSource] || payload.dailyModelMapBySource.all || {};
       } else if (payload.dailyModelMap) {
         ANTIGRAVITY_TOKEN_DATA.dailyModelMap = payload.dailyModelMap;
+      }
+      if (payload.hourlyModelMapBySource) {
+        ANTIGRAVITY_TOKEN_DATA.hourlyModelMapBySource = payload.hourlyModelMapBySource;
+        ANTIGRAVITY_TOKEN_DATA.hourlyModelMap = payload.hourlyModelMapBySource[activeTokenSource] || payload.hourlyModelMapBySource.all || {};
+      } else if (payload.hourlyModelMap) {
+        ANTIGRAVITY_TOKEN_DATA.hourlyModelMap = payload.hourlyModelMap;
       }
       if (payload.modelMetaByKey) ANTIGRAVITY_TOKEN_DATA.modelMetaByKey = payload.modelMetaByKey;
       if (payload.firstUseDate) ANTIGRAVITY_TOKEN_DATA.firstUseDate = payload.firstUseDate;

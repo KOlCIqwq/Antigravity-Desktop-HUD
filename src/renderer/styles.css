@@ -2870,7 +2870,7 @@
     .insp-delta-bar{width:10px;border-radius:2px;}
     .insp-delta-bar.is-pos{background:#30D158;}
     .insp-delta-bar.is-neg{background:#FF9F0A;}
-    .insp-bar-lbl{font-size:10.5px;white-space:nowrap;line-height:1.2;font-variant-numeric:tabular-nums;color:var(--ag-text-muted);}
+    .insp-bar-lbl{font-size:10.5px;height:13px;flex-shrink:0;white-space:nowrap;line-height:1.2;font-variant-numeric:tabular-nums;color:var(--ag-text-muted);}
     .insp-trend-detail-panel{
       margin-top:10px;padding:10px 12px;border-radius:10px;
       background:var(--insp-surface-inset);border:1px solid var(--insp-hairline);

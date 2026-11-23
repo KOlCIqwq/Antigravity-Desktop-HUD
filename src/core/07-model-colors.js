@@ -273,8 +273,10 @@
     let windowTotalTokens = 0;
     let windowTotalSteps = 0;
 
-    for (let i = 0; i < periodDays; i++) {
-      const dStr = shiftIsoDateDays(startDate, i);
+    const customBuckets = Array.isArray(options.bucketKeys) && options.bucketKeys.length ? options.bucketKeys : null;
+    const bucketList = customBuckets || Array.from({ length: periodDays }, (_, i) => shiftIsoDateDays(startDate, i));
+
+    for (const dStr of bucketList) {
       const dayRaw = (dailyModelMap && dailyModelMap[dStr] && typeof dailyModelMap[dStr] === 'object') ? dailyModelMap[dStr] : {};
       const dayGrouped = new Map();
       let dayTotal = 0;

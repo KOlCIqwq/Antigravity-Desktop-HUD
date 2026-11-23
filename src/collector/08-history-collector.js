@@ -46,9 +46,11 @@ function buildDailyModelBreakdown(params) {
     : {};
   const matchedModels = { desktop: {}, cli: {} };
   const extraModels = { desktop: {}, cli: {} };
+  const hourlyModels = { desktop: {}, cli: {} };
+  const hourlyCutoffDate = formatLocalDateKey(new Date(Date.now() - 6 * 86400000));
   const bucketMemo = new Map();
 
-  const addModelBucket = (srcMap, dateKey, callObj, inp, cap, outp, tot, steps = 1) => {
+  const addModelBucket = (srcMap, dateKey, callObj, inp, cap, outp, tot, steps = 1, srcHourlyMap = null) => {
     if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
     if (tot <= 0 && steps <= 0) return;
     const memoKey = `${callObj.model || ''}\0${callObj.modelExactId || ''}\0${callObj.modelLabel || ''}\0${callObj.effort || ''}`;
@@ -75,6 +77,28 @@ function buildDailyModelBreakdown(params) {
     srcMap[dateKey][vKey].output += outp;
     srcMap[dateKey][vKey].cache += cap;
     srcMap[dateKey][vKey].steps += steps;
+
+    if (srcHourlyMap) {
+      const rawTs = getCallSortTimestamp(callObj) || callObj.timestamp || (callObj.created_at ? new Date(callObj.created_at).getTime() : NaN);
+      const ts = Number(rawTs);
+      if (Number.isFinite(ts) && ts > 0) {
+        const dt = new Date(ts);
+        const hDate = formatLocalDateKey(dt);
+        if (hDate >= hourlyCutoffDate) {
+          const hKey = String(dt.getHours()).padStart(2, '0');
+          if (!srcHourlyMap[hDate]) srcHourlyMap[hDate] = {};
+          if (!srcHourlyMap[hDate][hKey]) srcHourlyMap[hDate][hKey] = {};
+          if (!srcHourlyMap[hDate][hKey][vKey]) {
+            srcHourlyMap[hDate][hKey][vKey] = { total: 0, input: 0, output: 0, cache: 0, steps: 0 };
+          }
+          srcHourlyMap[hDate][hKey][vKey].total += tot;
+          srcHourlyMap[hDate][hKey][vKey].input += inp;
+          srcHourlyMap[hDate][hKey][vKey].output += outp;
+          srcHourlyMap[hDate][hKey][vKey].cache += cap;
+          srcHourlyMap[hDate][hKey][vKey].steps += steps;
+        }
+      }
+    }
   };
 
   for (const [ledgerKey, c] of finalCallsEntries) {
@@ -86,7 +110,7 @@ function buildDailyModelBreakdown(params) {
     const cap = Number(c.cacheTokens ?? c.cacheReadTokens ?? c.cache_read_tokens ?? c.cached ?? 0) || 0;
     const outp = Number(c.outputTokens ?? c.output_tokens ?? c.output ?? 0) || 0;
     const tot = Number(c.totalTokens) || (inp + cap + outp);
-    addModelBucket(matchedLedgerKeys.has(ledgerKey) ? matchedModels[srcKey] : extraModels[srcKey], effDate, c, inp, cap, outp, tot, 1);
+    addModelBucket(matchedLedgerKeys.has(ledgerKey) ? matchedModels[srcKey] : extraModels[srcKey], effDate, c, inp, cap, outp, tot, 1, hourlyModels[srcKey]);
   }
 
   for (const r of recentRequests) {
@@ -96,7 +120,7 @@ function buildDailyModelBreakdown(params) {
     const cap = Number(r.cacheTokens ?? r.cacheReadTokens ?? 0) || 0;
     const outp = Number(r.outputTokens) || 0;
     const tot = Number(r.totalTokens) || (inp + cap + outp);
-    addModelBucket(matchedModels[srcKey], r.date, r, inp, cap, outp, tot, 1);
+    addModelBucket(matchedModels[srcKey], r.date, r, inp, cap, outp, tot, 1, hourlyModels[srcKey]);
   }
 
   const appendScaledDayBuckets = (dayOut, srcDay, authTotal, state) => {
@@ -211,12 +235,36 @@ function buildDailyModelBreakdown(params) {
     unallocatedModelMap[dateKey] = { [UNATTRIBUTED_MODEL_KEY]: { ...rec } };
   }
   const allModelMap = mergeModelDailyMaps(desktopModelMap, cliModelMap, unallocatedModelMap);
+  const allHourlyMap = {};
+  for (const srcHourly of [hourlyModels.desktop, hourlyModels.cli]) {
+    for (const [hDate, hoursObj] of Object.entries(srcHourly)) {
+      if (!allHourlyMap[hDate]) allHourlyMap[hDate] = {};
+      for (const [hKey, modelRecs] of Object.entries(hoursObj)) {
+        if (!allHourlyMap[hDate][hKey]) allHourlyMap[hDate][hKey] = {};
+        for (const [mKey, rec] of Object.entries(modelRecs)) {
+          if (!allHourlyMap[hDate][hKey][mKey]) {
+            allHourlyMap[hDate][hKey][mKey] = { total: 0, input: 0, output: 0, cache: 0, steps: 0 };
+          }
+          allHourlyMap[hDate][hKey][mKey].total += rec.total;
+          allHourlyMap[hDate][hKey][mKey].input += rec.input;
+          allHourlyMap[hDate][hKey][mKey].output += rec.output;
+          allHourlyMap[hDate][hKey][mKey].cache += rec.cache;
+          allHourlyMap[hDate][hKey][mKey].steps += rec.steps;
+        }
+      }
+    }
+  }
 
   return {
     dailyModelMapBySource: {
       all: allModelMap,
       desktop: desktopModelMap,
       cli: cliModelMap
+    },
+    hourlyModelMapBySource: {
+      all: allHourlyMap,
+      desktop: hourlyModels.desktop,
+      cli: hourlyModels.cli
     },
     modelMetaByKey
   };
@@ -1330,6 +1378,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
     mergedCli,
     mergedLegacyUnallocated,
     dailyModelMapBySource: modelBreakdown.dailyModelMapBySource,
+    hourlyModelMapBySource: modelBreakdown.hourlyModelMapBySource,
     modelMetaByKey: modelBreakdown.modelMetaByKey,
     compactModelConfigs,
     availableModelDetails: livePlanStatus?.availableModelDetails || null,
@@ -1450,6 +1499,7 @@ async function collectTokenHistoryCoreAsync(options = {}, extraContext = {}) {
       legacyUnallocated: mergedLegacyUnallocated
     },
     dailyModelMapBySource: modelBreakdown.dailyModelMapBySource,
+    hourlyModelMapBySource: modelBreakdown.hourlyModelMapBySource,
     modelMetaByKey: modelBreakdown.modelMetaByKey
   };
 

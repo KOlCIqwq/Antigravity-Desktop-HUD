@@ -1004,6 +1004,12 @@
     const dailyModelMap = dailyModelMapBySource
       ? (dailyModelMapBySource[source] || dailyModelMapBySource.all || {})
       : (payload.dailyModelMap || {});
+    const hourlyModelMapBySource = payload.hourlyModelMapBySource && typeof payload.hourlyModelMapBySource === 'object'
+      ? payload.hourlyModelMapBySource
+      : null;
+    const hourlyModelMap = hourlyModelMapBySource
+      ? (hourlyModelMapBySource[source] || hourlyModelMapBySource.all || {})
+      : (payload.hourlyModelMap || {});
 
     return {
       schemaVersion: payload.schemaVersion || '0.8.8',
@@ -1029,6 +1035,8 @@
       dailyMapBySource,
       dailyModelMap,
       dailyModelMapBySource,
+      hourlyModelMap,
+      hourlyModelMapBySource,
       modelMetaByKey: payload.modelMetaByKey || null
     };
   }
