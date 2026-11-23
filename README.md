@@ -13,8 +13,6 @@
 
 </div>
 
-
-
 ## Let an agent install it for you
 
 Paste this prompt into your AI coding agent (Antigravity, Claude Code, Cursor, or Codex):
@@ -52,21 +50,17 @@ Choose between permanent patching or live injection over CDP.
 ### Option 1: Permanent install (patches `app.asar`)
 
 1. Close Antigravity completely.
-2. Verify path detection:
+2. Verify path detection (pass `--path <path-to-app.asar>` if Antigravity is in a custom location):
 
-```bash
-node cli.js check
-```
+   ```bash
+   node cli.js check
+   ```
 
-If Antigravity is in a custom path, pass `--path <path-to-app.asar>`.
+3. Install Antigravity HUD (automatically backs up the original `app.asar` before patching):
 
-3. Install the toolbar:
-
-```bash
-node cli.js install
-```
-
-The installer automatically backs up the original `app.asar` to `~/.antigravity-context-bar/backups/app.asar.bak`.
+   ```bash
+   node cli.js install
+   ```
 
 4. Reopen Antigravity.
 
@@ -80,17 +74,15 @@ node cli.js restore
 
 1. Launch Antigravity with debugging enabled:
 
-```bash
-antigravity --remote-debugging-port=9222
-```
+   ```bash
+   antigravity --remote-debugging-port=9222
+   ```
 
-2. Start the live injector bridge:
+2. Start the live injector bridge (pass `--port <cdpPort>` for a non-default port; press `Ctrl+C` to detach):
 
-```bash
-node cli.js live
-```
-
-Pass `--port <cdpPort>` if using a non-default port. Press `Ctrl+C` to detach.
+   ```bash
+   node cli.js live
+   ```
 
 ### Global CLI (optional)
 
