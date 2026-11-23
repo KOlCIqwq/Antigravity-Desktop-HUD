@@ -4,6 +4,8 @@
 
 **A status bar for Google Antigravity that tracks live context usage, generation speed, model quota, and local token history.**
 
+![Node.js >= 22.4.0](https://img.shields.io/badge/node-%3E%3D22.4.0-339933?style=flat-square&logo=nodedotjs&logoColor=white)
+![Platform: Windows | macOS | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-2ea44f?style=flat-square)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 
