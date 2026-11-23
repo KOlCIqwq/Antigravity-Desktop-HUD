@@ -64,7 +64,17 @@ Choose between permanent patching or live injection over CDP.
 
 4. Reopen Antigravity.
 
-To uninstall and restore the original `app.asar`:
+#### Auto-repatch after Antigravity updates
+
+Antigravity updates overwrite `app.asar` and drop the HUD patch. To handle this without manual terminal commands, `node cli.js install` also installs a small Antigravity plugin at `~/.gemini/config/plugins/antigravity-hud-watcher/` (with a `hooks.json` entry and a local copy of the HUD files).
+
+Here is what its `SessionStart` and `PreInvocation` hooks do when a session runs:
+- If `app.asar` is still patched, the hook exits right away and does nothing.
+- If an Antigravity update replaced `app.asar`, it sends a system notification (`Antigravity updated. Restart Antigravity to reload HUD.`) and starts a background helper that tracks the running Antigravity PIDs, waits for them to exit, refreshes `app.asar.bak`, and re-patches `app.asar` for the next launch (logging to `~/.antigravity-context-bar/watcher.log`).
+
+Nothing is hidden or permanent. Running `node cli.js restore` restores the original `app.asar` from backup and deletes `~/.gemini/config/plugins/antigravity-hud-watcher/`.
+
+To uninstall and restore the original `app.asar` and remove the watcher plugin:
 
 ```bash
 node cli.js restore
@@ -99,7 +109,7 @@ Then run `antigravity-hud <command>` from any directory.
 | Command | Description |
 |---|---|
 | `node cli.js check [--path <path>]` | Verify Antigravity `app.asar` path |
-| `node cli.js status [--path <path>] [--port <port>]` | Show patch status, backup file, and active CDP windows |
+| `node cli.js status [--path <path>] [--port <port>]` | Show patch status, backup file, watcher plugin status, and active CDP windows |
 | `node cli.js install [--path <path>]` | Back up and patch `app.asar` |
 | `node cli.js restore [--path <path>]` | Restore original `app.asar` from backup |
 | `node cli.js live [--port <port>]` | Inject via CDP without disk modifications |

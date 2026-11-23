@@ -75,6 +75,219 @@ function copyDirRecursive(src, dest) {
   }
 }
 
+function getPluginsDir(opts = {}) {
+  if (opts.pluginsDir) return path.resolve(opts.pluginsDir);
+  if (process.env.ANTIGRAVITY_PLUGINS_DIR) return path.resolve(process.env.ANTIGRAVITY_PLUGINS_DIR);
+  return path.join(os.homedir(), '.gemini', 'config', 'plugins');
+}
+
+function getWatcherPluginDir(opts = {}) {
+  return path.join(getPluginsDir(opts), 'antigravity-hud-watcher');
+}
+
+function copyHudRuntime(rootDir, destDir) {
+  const copies = [
+    ['main-hook.js', 'context-bar-main.js'],
+    ['core.js', 'core.js'],
+    ['collector.js', 'collector.js'],
+    ['insights.js', 'insights.js'],
+    ['cdp.js', 'cdp.js'],
+    ['asar.js', 'asar.js'],
+    ['package.json', 'package.json']
+  ];
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const [srcName, destName] of copies) {
+    fs.copyFileSync(path.join(rootDir, srcName), path.join(destDir, destName));
+  }
+  fs.mkdirSync(path.join(destDir, 'scripts'), { recursive: true });
+  fs.copyFileSync(path.join(rootDir, 'scripts', 'build-renderer.js'), path.join(destDir, 'scripts', 'build-renderer.js'));
+  copyDirRecursive(path.join(rootDir, 'src'), path.join(destDir, 'src'));
+}
+
+function buildWatcherCheckSource() {
+  return `'use strict';
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
+const { isAsarPatched, findAsarPath, getStateDir } = require('./hud/installer');
+
+function isPidAlive(pid) {
+  if (!pid || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+function main() {
+  let asarPath;
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+    asarPath = cfg.asarPath && fs.existsSync(cfg.asarPath) ? cfg.asarPath : findAsarPath();
+  } catch {
+    try { asarPath = findAsarPath(); } catch { return; }
+  }
+  if (!asarPath || isAsarPatched(asarPath)) return;
+
+  const lockPath = path.join(getStateDir(), 'watcher.pid');
+  try {
+    const existingPid = Number(fs.readFileSync(lockPath, 'utf8').trim());
+    if (isPidAlive(existingPid)) return;
+  } catch {}
+
+  const child = spawn(process.execPath, [
+    path.join(__dirname, 'worker.js'),
+    asarPath,
+    path.join(__dirname, 'hud')
+  ], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  child.unref();
+}
+
+main();
+`;
+}
+
+function buildWatcherWorkerSource() {
+  return `'use strict';
+const fs = require('fs');
+const path = require('path');
+const { spawn, spawnSync } = require('child_process');
+const { install, isAsarPatched, getStateDir } = require('./hud/installer');
+
+const args = process.argv.slice(2);
+const noNotify = args.includes('--no-notify') || args.includes('--no-prompt');
+const noWait = args.includes('--no-wait');
+const [asarPath, hudDir] = args.filter(a => !a.startsWith('--'));
+const stateDir = getStateDir();
+const lockPath = path.join(stateDir, 'watcher.pid');
+const logPath = path.join(stateDir, 'watcher.log');
+
+function log(msg) {
+  try { fs.appendFileSync(logPath, '[' + new Date().toISOString() + '] ' + msg + '\\n', 'utf8'); } catch {}
+}
+
+function getAntigravityPids() {
+  if (process.platform === 'win32') {
+    const res = spawnSync('tasklist', ['/FI', 'IMAGENAME eq Antigravity.exe', '/FO', 'CSV', '/NH'], { encoding: 'utf8', windowsHide: true });
+    const pids = [];
+    for (const line of (res.stdout || '').split(/\\r?\\n/)) {
+      const m = line.match(/^"Antigravity\\.exe","(\\d+)"/i);
+      if (m) pids.push(Number(m[1]));
+    }
+    return pids;
+  }
+  const res = spawnSync('pgrep', ['-ix', 'antigravity'], { encoding: 'utf8' });
+  return (res.stdout || '').split(/\\r?\\n/).map(Number).filter(Boolean);
+}
+
+function isPidAlive(pid) {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+function sendNotification() {
+  if (noNotify) return;
+  let child;
+  if (process.platform === 'win32') {
+    const ps = "$appId = (Get-StartApps | Where-Object { $_.Name -eq 'Antigravity' } | Select-Object -First 1 -ExpandProperty AppID); if (-not $appId) { $appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe' }; [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; $tpl = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); $nodes = $tpl.GetElementsByTagName('text'); $nodes.Item(0).AppendChild($tpl.CreateTextNode('Antigravity HUD')) | Out-Null; $nodes.Item(1).AppendChild($tpl.CreateTextNode('Antigravity updated. Restart Antigravity to reload HUD.')) | Out-Null; [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show([Windows.UI.Notifications.ToastNotification]::new($tpl))";
+    child = spawn('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps], { stdio: 'ignore', windowsHide: true });
+  } else if (process.platform === 'darwin') {
+    child = spawn('osascript', ['-e', 'display notification "Antigravity updated. Restart Antigravity to reload HUD." with title "Antigravity HUD"'], { stdio: 'ignore' });
+  } else {
+    child = spawn('notify-send', ['Antigravity HUD', 'Antigravity updated. Restart Antigravity to reload HUD.'], { stdio: 'ignore' });
+  }
+  child.on('error', () => {});
+  child.unref();
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function run() {
+  try { fs.writeFileSync(logPath, '', 'utf8'); } catch {}
+  fs.writeFileSync(lockPath, String(process.pid), 'utf8');
+  const cleanup = () => { try { fs.unlinkSync(lockPath); } catch {} };
+  process.on('exit', cleanup);
+
+  const initialPids = noWait ? [] : getAntigravityPids();
+  log('started pid=' + process.pid + ' watching=' + JSON.stringify(initialPids));
+  sendNotification();
+
+  if (!noWait && initialPids.length > 0) {
+    const deadline = Date.now() + 24 * 60 * 60 * 1000;
+    while (initialPids.some(isPidAlive) && Date.now() < deadline) {
+      await sleep(150);
+    }
+    log('all watched pids exited');
+  }
+
+  if (!isAsarPatched(asarPath)) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      try {
+        install({ path: asarPath, rootDir: hudDir, skipWatcher: true });
+        log('install() succeeded');
+        break;
+      } catch (err) {
+        log('attempt ' + (attempt + 1) + ' failed: ' + (err.code || err.message));
+        if (attempt === 19) throw err;
+        await sleep(300);
+      }
+    }
+  } else {
+    log('already patched');
+  }
+
+  cleanup();
+}
+
+run().catch(err => {
+  log('fatal: ' + (err && err.stack ? err.stack : err));
+  process.exit(1);
+});
+`;
+}
+
+function installWatcherPlugin(rootDir, asarPath, opts = {}) {
+  const pluginDir = getWatcherPluginDir(opts);
+  const hudDir = path.join(pluginDir, 'hud');
+  fs.mkdirSync(hudDir, { recursive: true });
+
+  const checkPath = path.join(pluginDir, 'check.js');
+  const hookCmd = `"${process.execPath}" "${checkPath}"`;
+
+  fs.writeFileSync(path.join(pluginDir, 'plugin.json'), JSON.stringify({
+    name: 'antigravity-hud-watcher',
+    displayName: 'Antigravity HUD Watcher',
+    version: '1.0.0',
+    description: 'Re-applies Antigravity HUD to app.asar after Antigravity updates.'
+  }, null, 2));
+  fs.writeFileSync(path.join(pluginDir, 'hooks.json'), JSON.stringify({
+    'antigravity-hud-watcher': {
+      SessionStart: [{ type: 'command', command: hookCmd, timeout: 10 }],
+      PreInvocation: [{ type: 'command', command: hookCmd, timeout: 10 }]
+    }
+  }, null, 2));
+  fs.writeFileSync(path.join(pluginDir, 'config.json'), JSON.stringify({ asarPath }, null, 2));
+  fs.writeFileSync(checkPath, buildWatcherCheckSource(), 'utf8');
+  fs.writeFileSync(path.join(pluginDir, 'worker.js'), buildWatcherWorkerSource(), 'utf8');
+
+  copyHudRuntime(rootDir, hudDir);
+  fs.copyFileSync(path.join(rootDir, 'installer.js'), path.join(hudDir, 'installer.js'));
+  fs.copyFileSync(path.join(rootDir, 'live-server.js'), path.join(hudDir, 'live-server.js'));
+  fs.copyFileSync(path.join(rootDir, 'main-hook.js'), path.join(hudDir, 'main-hook.js'));
+  return pluginDir;
+}
+
+function removeWatcherPlugin(opts = {}) {
+  const pluginDir = getWatcherPluginDir(opts);
+  if (fs.existsSync(pluginDir)) {
+    fs.rmSync(pluginDir, { recursive: true, force: true });
+    return true;
+  }
+  return false;
+}
+
 function install(opts = {}) {
   const asarPath = findAsarPath(opts.path);
   const rawFs = getRawFs();
@@ -83,16 +296,24 @@ function install(opts = {}) {
   const backupDir = path.join(getStateDir(), 'backups');
   fs.mkdirSync(backupDir, { recursive: true });
   const backupPath = path.join(backupDir, 'app.asar.bak');
+  const backupMetaPath = path.join(getStateDir(), 'backup.json');
   const alreadyPatched = isAsarPatched(asarPath);
 
-  if (!alreadyPatched && !fs.existsSync(backupPath)) {
-    rawFs.copyFileSync(asarPath, backupPath);
-    fs.writeFileSync(path.join(getStateDir(), 'backup.json'), JSON.stringify({
-      asarPath,
-      backupPath,
-      originalSha256: sha256File(asarPath),
-      createdAt: new Date().toISOString()
-    }, null, 2));
+  if (!alreadyPatched) {
+    const currentSha256 = sha256File(asarPath);
+    let prevSha256 = null;
+    try {
+      prevSha256 = JSON.parse(fs.readFileSync(backupMetaPath, 'utf8')).originalSha256;
+    } catch {}
+    if (!fs.existsSync(backupPath) || prevSha256 !== currentSha256) {
+      rawFs.copyFileSync(asarPath, backupPath);
+      fs.writeFileSync(backupMetaPath, JSON.stringify({
+        asarPath,
+        backupPath,
+        originalSha256: currentSha256,
+        createdAt: new Date().toISOString()
+      }, null, 2));
+    }
   }
 
   const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'context-bar-asar-'));
@@ -134,26 +355,13 @@ ${TAGS.PRELOAD_END}\n`;
     fs.writeFileSync(utilsPath, utils, 'utf8');
     fs.writeFileSync(preloadPath, preload, 'utf8');
 
-    const copies = [
-      ['main-hook.js', 'context-bar-main.js'],
-      ['core.js', 'core.js'],
-      ['collector.js', 'collector.js'],
-      ['insights.js', 'insights.js'],
-      ['cdp.js', 'cdp.js'],
-      ['asar.js', 'asar.js'],
-      ['package.json', 'package.json']
-    ];
-    for (const [srcName, destName] of copies) {
-      fs.copyFileSync(path.join(rootDir, srcName), path.join(staging, 'dist', destName));
-    }
-    fs.mkdirSync(path.join(staging, 'dist', 'scripts'), { recursive: true });
-    fs.copyFileSync(path.join(rootDir, 'scripts', 'build-renderer.js'), path.join(staging, 'dist', 'scripts', 'build-renderer.js'));
-    copyDirRecursive(path.join(rootDir, 'src'), path.join(staging, 'dist', 'src'));
+    copyHudRuntime(rootDir, path.join(staging, 'dist'));
 
     const tmpOut = path.join(path.dirname(asarPath), `app.asar.tmp.${process.pid}`);
     createPackage(staging, tmpOut, unpacked);
     rawFs.renameSync(tmpOut, asarPath);
-    return { ok: true, asarPath, backupPath };
+    const watcherPluginDir = opts.skipWatcher ? null : installWatcherPlugin(rootDir, asarPath, opts);
+    return { ok: true, asarPath, backupPath, watcherPluginDir };
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }
@@ -163,9 +371,10 @@ function restore(opts = {}) {
   const asarPath = findAsarPath(opts.path);
   const rawFs = getRawFs();
   const backupPath = path.join(getStateDir(), 'backups', 'app.asar.bak');
+  const watcherRemoved = removeWatcherPlugin(opts);
   if (fs.existsSync(backupPath)) {
     rawFs.copyFileSync(backupPath, asarPath);
-    return { ok: true, method: 'backup', asarPath };
+    return { ok: true, method: 'backup', asarPath, watcherRemoved };
   }
 
   const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'context-bar-restore-'));
@@ -183,7 +392,7 @@ function restore(opts = {}) {
     const tmpOut = path.join(path.dirname(asarPath), `app.asar.tmp.${process.pid}`);
     createPackage(staging, tmpOut, unpacked);
     rawFs.renameSync(tmpOut, asarPath);
-    return { ok: true, method: 'in-place', asarPath };
+    return { ok: true, method: 'in-place', asarPath, watcherRemoved };
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }
@@ -197,11 +406,13 @@ async function getStatus(opts = {}) {
     asarPatched = isAsarPatched(asarPath);
   } catch {}
   const backupExists = fs.existsSync(path.join(getStateDir(), 'backups', 'app.asar.bak'));
+  const watcherPluginInstalled = fs.existsSync(path.join(getWatcherPluginDir(opts), 'hooks.json'));
   const cdp = await discoverCdp(opts.port);
   return {
     asarPath,
     asarPatched,
     backupExists,
+    watcherPluginInstalled,
     cdpPort: cdp?.port || null,
     cdpPages: cdp?.pages?.length || 0
   };
@@ -239,6 +450,11 @@ async function liveInject(opts = {}) {
 
 module.exports = {
   TAGS,
+  findAsarPath,
+  getStateDir,
+  getWatcherPluginDir,
+  installWatcherPlugin,
+  removeWatcherPlugin,
   validateSyntax,
   stripTaggedBlock,
   isAsarPatched,
