@@ -43,8 +43,8 @@ Install Antigravity HUD (`antigravity-hud`) for me:
 Clone the repository:
 
 ```bash
-git clone https://github.com/<owner>/antigravity-context-viewer.git
-cd antigravity-context-viewer
+git clone https://github.com/KOlCIqwq/Antigravity-HUD.git
+cd Antigravity-HUD
 ```
 
 Choose between permanent patching or live injection over CDP.
