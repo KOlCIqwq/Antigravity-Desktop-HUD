@@ -153,7 +153,7 @@ function buildWatcherWorkerSource() {
 const fs = require('fs');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
-const { install, isAsarPatched, getStateDir } = require('./hud/installer');
+const { prepareInstall, commitInstall, isAsarPatched, getStateDir } = require('./hud/installer');
 
 const args = process.argv.slice(2);
 const noNotify = args.includes('--no-notify') || args.includes('--no-prompt');
@@ -214,31 +214,43 @@ async function run() {
   log('started pid=' + process.pid + ' watching=' + JSON.stringify(initialPids));
   sendNotification();
 
-  if (!noWait && initialPids.length > 0) {
-    const deadline = Date.now() + 24 * 60 * 60 * 1000;
-    while (initialPids.some(isPidAlive) && Date.now() < deadline) {
-      await sleep(150);
+  let prepared = null;
+  try {
+    if (!isAsarPatched(asarPath)) {
+      prepared = prepareInstall({ path: asarPath, rootDir: hudDir });
+      log('staged patched asar');
+    } else {
+      log('already patched');
     }
-    log('all watched pids exited');
-  }
 
-  if (!isAsarPatched(asarPath)) {
-    for (let attempt = 0; attempt < 20; attempt++) {
-      try {
-        install({ path: asarPath, rootDir: hudDir, skipWatcher: true });
-        log('install() succeeded');
-        break;
-      } catch (err) {
-        log('attempt ' + (attempt + 1) + ' failed: ' + (err.code || err.message));
-        if (attempt === 19) throw err;
-        await sleep(300);
+    if (!noWait && initialPids.length > 0) {
+      const deadline = Date.now() + 24 * 60 * 60 * 1000;
+      while (initialPids.some(isPidAlive) && Date.now() < deadline) {
+        await sleep(50);
+      }
+      log('all watched pids exited');
+    }
+
+    if (prepared && !isAsarPatched(asarPath)) {
+      for (let attempt = 0; attempt < 30; attempt++) {
+        try {
+          commitInstall(prepared);
+          prepared = null;
+          log('install() succeeded');
+          break;
+        } catch (err) {
+          log('attempt ' + (attempt + 1) + ' failed: ' + (err.code || err.message));
+          if (attempt === 29) throw err;
+          await sleep(100);
+        }
       }
     }
-  } else {
-    log('already patched');
+  } finally {
+    if (prepared && prepared.tmpOut) {
+      try { fs.unlinkSync(prepared.tmpOut); } catch {}
+    }
+    cleanup();
   }
-
-  cleanup();
 }
 
 run().catch(err => {
@@ -288,7 +300,7 @@ function removeWatcherPlugin(opts = {}) {
   return false;
 }
 
-function install(opts = {}) {
+function prepareInstall(opts = {}) {
   const asarPath = findAsarPath(opts.path);
   const rawFs = getRawFs();
   const rootDir = opts.rootDir || __dirname;
@@ -359,12 +371,26 @@ ${TAGS.PRELOAD_END}\n`;
 
     const tmpOut = path.join(path.dirname(asarPath), `app.asar.tmp.${process.pid}`);
     createPackage(staging, tmpOut, unpacked);
-    rawFs.renameSync(tmpOut, asarPath);
-    const watcherPluginDir = opts.skipWatcher ? null : installWatcherPlugin(rootDir, asarPath, opts);
-    return { ok: true, asarPath, backupPath, watcherPluginDir };
+    return { asarPath, backupPath, tmpOut, rootDir };
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }
+}
+
+function commitInstall(prepared) {
+  getRawFs().renameSync(prepared.tmpOut, prepared.asarPath);
+}
+
+function install(opts = {}) {
+  const prepared = prepareInstall(opts);
+  try {
+    commitInstall(prepared);
+  } catch (err) {
+    try { fs.unlinkSync(prepared.tmpOut); } catch {}
+    throw err;
+  }
+  const watcherPluginDir = opts.skipWatcher ? null : installWatcherPlugin(prepared.rootDir, prepared.asarPath, opts);
+  return { ok: true, asarPath: prepared.asarPath, backupPath: prepared.backupPath, watcherPluginDir };
 }
 
 function restore(opts = {}) {
@@ -458,6 +484,8 @@ module.exports = {
   validateSyntax,
   stripTaggedBlock,
   isAsarPatched,
+  prepareInstall,
+  commitInstall,
   install,
   restore,
   getStatus,
