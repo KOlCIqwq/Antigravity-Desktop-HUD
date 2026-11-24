@@ -2004,27 +2004,71 @@
       peakDay.tot > 0 ? t('inspector.peakDay', { val: short(peakDay.tot), date: peakDay.ymd.slice(5).replace('-', '/') }) : ''
     ].filter(Boolean).join(' · ');
 
-    // Real API Equivalent Cost (hybrid -> costEstimate -> referenceCost -> live calculateReferenceModelCost -> insights)
-    const curTotal = Number(sumObj.grandTotalTokens || (curIn + curCa + curOut));
-    const refAll = ANTIGRAVITY_TOKEN_DATA.referenceCost?.all || {};
-    const hybCost = ANTIGRAVITY_TOKEN_DATA.referenceCost?.hybrid?.hybrid?.combinedTotalUSD;
-    const ceCost = ANTIGRAVITY_TOKEN_DATA.costEstimate?.totalCostUSD;
-    let calcRef = refAll;
-    if ((calcRef.totalCostUSD == null) && curTotal > 0 && core && typeof core.calculateReferenceModelCost === 'function') {
-      calcRef = core.calculateReferenceModelCost({
-        inputTokens: curIn,
-        outputTokens: curOut,
-        cacheTokens: curCa,
-        totalTokens: curTotal
-      }, 'gemini-3.8-flash', { pricingDate: '2026-11-09', mode: 'all' }) || {};
+    // Windowed API Equivalent Cost (follows 1d / 7d / 30d bars, per-model pricing)
+    const rangeTag = is1d ? '1d' : (periodDays === 30 ? '30d' : '7d');
+    const calcModelsCost = (items) => {
+      let totIn = 0, totCa = 0, totOut = 0, totAll = 0;
+      let inUsd = 0, caUsd = 0, outUsd = 0, savedUsd = 0;
+      for (const item of items) {
+        const mIn = Number(item.input) || 0;
+        const mCa = Number(item.cache) || 0;
+        const mOut = Number(item.output) || 0;
+        const mTot = Number(item.tokens) || (mIn + mCa + mOut);
+        totIn += mIn;
+        totCa += mCa;
+        totOut += mOut;
+        totAll += mTot;
+        if (core && typeof core.calculateReferenceModelCost === 'function') {
+          const mc = core.calculateReferenceModelCost({
+            inputTokens: mIn,
+            cacheTokens: mCa,
+            outputTokens: mOut,
+            totalTokens: mTot
+          }, item.key, { pricingDate: todayStr }) || {};
+          const mInUsd = Number(mc.inputCostUSD || 0);
+          const mCaUsd = Number(mc.cacheCostUSD || 0);
+          const mOutUsd = Number(mc.outputCostUSD || 0);
+          const mRateIn = Number(mc.matchedTier?.inputPerMillion ?? 0.75);
+          inUsd += mInUsd;
+          caUsd += mCaUsd;
+          outUsd += mOutUsd;
+          savedUsd += Math.max(0, (mCa * mRateIn / 1e6) - mCaUsd);
+        }
+      }
+      return { totIn, totCa, totOut, totAll, inUsd, caUsd, outUsd, totalUsd: inUsd + caUsd + outUsd, savedUsd };
+    };
+
+    const winCost = calcModelsCost(rawLegend);
+    const winIn = winCost.totIn;
+    const winCa = winCost.totCa;
+    const winOut = winCost.totOut;
+    const winTotal = winCost.totAll;
+    const cInUsd = winCost.inUsd;
+    const cCaUsd = winCost.caUsd;
+    const cOutUsd = winCost.outUsd;
+    const resolvedCost = winCost.totalUsd;
+    const winCacheSavedUsd = winCost.savedUsd;
+    const winCacheRate = (winIn + winCa) > 0 ? winCa / (winIn + winCa) : null;
+    const winSavedTag = winCacheSavedUsd > 0 ? ` <span class="insp-add" style="font-size:11px;font-weight:600">saved ${escHtml(fmtUsd(winCacheSavedUsd))}</span>` : '';
+
+    const allModelTotals = new Map();
+    for (const dayRecs of Object.values(dailyModelMap || {})) {
+      if (!dayRecs || typeof dayRecs !== 'object') continue;
+      for (const [rawKey, rec] of Object.entries(dayRecs)) {
+        if (!rec || typeof rec !== 'object') continue;
+        const mKey = ANTIGRAVITY_TOKEN_DATA.modelMetaByKey?.[rawKey]?.modelKey || rawKey.split(':')[0] || rawKey;
+        const prev = allModelTotals.get(mKey) || { key: mKey, input: 0, cache: 0, output: 0, tokens: 0 };
+        prev.input += Number(rec.input) || 0;
+        prev.cache += Number(rec.cache) || 0;
+        prev.output += Number(rec.output) || 0;
+        prev.tokens += Number(rec.total) || 0;
+        allModelTotals.set(mKey, prev);
+      }
     }
-    const resolvedCost = hybCost ?? ceCost ?? calcRef.totalCostUSD ?? inspectorState.insights?.totals?.estimatedCostUSD ?? (curTotal > 0 ? 0 : null);
-    const rateIn = Number(calcRef.matchedTier?.inputPerMillion ?? 0.75);
-    const rateCa = Number(calcRef.matchedTier?.cacheReadPerMillion ?? 0.075);
-    const rateOut = Number(calcRef.matchedTier?.outputPerMillion ?? 3.75);
-    const cInUsd = calcRef.inputCostUSD != null ? Number(calcRef.inputCostUSD) : (curIn * rateIn / 1e6);
-    const cCaUsd = calcRef.cacheCostUSD != null ? Number(calcRef.cacheCostUSD) : (curCa * rateCa / 1e6);
-    const cOutUsd = calcRef.outputCostUSD != null ? Number(calcRef.outputCostUSD) : (curOut * rateOut / 1e6);
+    const allCaSavedUsd = allModelTotals.size > 0
+      ? calcModelsCost(allModelTotals.values()).savedUsd
+      : Math.max(0, (curCa * 0.75 / 1e6) - (curCa * 0.075 / 1e6));
+    const allSavedTag = allCaSavedUsd > 0 ? ` <span class="insp-add" style="font-size:11px;font-weight:600">saved ${escHtml(fmtUsd(allCaSavedUsd))}</span>` : '';
     const tierName = (ANTIGRAVITY_TOKEN_DATA.planStatus?.tierName && ANTIGRAVITY_TOKEN_DATA.planStatus.tierName !== '未知')
       ? ANTIGRAVITY_TOKEN_DATA.planStatus.tierName
       : '';
@@ -2034,7 +2078,7 @@
         <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.usageToday'))}</span><span class="insp-kv-v">${short(todayTok)}</span></div>
         <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.usage7d'))}</span><span class="insp-kv-v">${short(tok7d)}</span></div>
         <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.usage30d'))}</span><span class="insp-kv-v">${short(tok30d)}</span></div>
-        <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.kpi.cacheHit'))}</span><span class="insp-kv-v">${fmtPct1(cacheRate)}</span></div>
+        <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.kpi.cacheHit'))}</span><span class="insp-kv-v">${fmtPct1(cacheRate)}${allSavedTag}</span></div>
       </div>
 
       <div class="insp-card insp-card-pad">
@@ -2064,14 +2108,14 @@
 
       <div class="insp-card">
         <button id="insp-cost-toggle-btn" class="insp-cost-toggle" type="button">
-          <span>${escHtml(t('inspector.apiCostEst'))}: <strong>${escHtml(fmtUsd(resolvedCost))}</strong> · ${short(curTotal)} tok</span>
+          <span>${escHtml(t('inspector.apiCostEst'))} (${rangeTag}): <strong>${escHtml(fmtUsd(resolvedCost))}</strong> · ${short(winTotal)} tok</span>
           <span style="color:var(--insp-accent)">${escHtml(inspectorState.costExpanded ? t('inspector.showLess') : t('inspector.showMore'))}</span>
         </button>
         ${inspectorState.costExpanded ? `<div class="insp-kv-grid" style="border:none;border-top:1px solid var(--insp-hairline);border-radius:0">
-          <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.costInput'))}</span><span class="insp-kv-v">${fmtUsd(cInUsd)} · ${short(curIn)}</span></div>
-          <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.costCache'))}</span><span class="insp-kv-v">${fmtUsd(cCaUsd)} · ${short(curCa)}</span></div>
-          <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.costOutput'))}</span><span class="insp-kv-v">${fmtUsd(cOutUsd)} · ${short(curOut)}</span></div>
-          <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.kpi.cacheHit'))}</span><span class="insp-kv-v">${fmtPct1(cacheRate)}</span></div>
+          <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.costInput'))}</span><span class="insp-kv-v">${fmtUsd(cInUsd)} · ${short(winIn)}</span></div>
+          <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.costCache'))}</span><span class="insp-kv-v">${fmtUsd(cCaUsd)} · ${short(winCa)}</span></div>
+          <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.costOutput'))}</span><span class="insp-kv-v">${fmtUsd(cOutUsd)} · ${short(winOut)}</span></div>
+          <div class="insp-kv-cell"><span class="insp-kv-k">${escHtml(t('inspector.kpi.cacheHit'))}</span><span class="insp-kv-v">${fmtPct1(winCacheRate)}${winSavedTag}</span></div>
         </div>
         <div class="insp-cost-note"><span>${escHtml(t('inspector.costRefNote'))}</span><span>${escHtml(tierName)}</span></div>` : ''}
       </div>

@@ -1,12 +1,35 @@
 {
-  "name": "antigravity-hud",
+  "name": "antigravity-desktop-hud",
   "version": "1.0.0",
-  "description": "Antigravity HUD - Minimalist context, speed, quota, and token history toolbar for Antigravity",
+  "description": "Antigravity Desktop HUD - Minimalist context, speed, quota, and token history status bar for Google Antigravity Desktop",
   "main": "cli.js",
   "bin": {
-    "antigravity-hud": "./cli.js",
-    "context-bar": "./cli.js"
+    "antigravity-desktop-hud": "cli.js",
+    "antigravity-hud": "cli.js",
+    "context-bar": "cli.js"
   },
+  "files": [
+    "*.js",
+    "scripts/build-renderer.js",
+    "src/",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KOlCIqwq/Antigravity-Desktop-HUD.git"
+  },
+  "keywords": [
+    "antigravity",
+    "google-antigravity",
+    "agy",
+    "hud",
+    "status-bar",
+    "context-window",
+    "token-tracker",
+    "quota-monitor",
+    "ttft"
+  ],
   "engines": {
     "node": ">=22.4.0"
   },

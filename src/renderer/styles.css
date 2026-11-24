@@ -660,7 +660,7 @@
       color:var(--ag-text-muted);white-space:nowrap;
     }
     .quota-tip-val{
-      font-family:"Cascadia Mono","Consolas","SF Mono",Menlo,ui-monospace,monospace;
+      font-family:"JetBrains Mono","SF Mono","Consolas",ui-monospace,Menlo,monospace;
       font-weight:600;color:var(--ag-text-primary);white-space:nowrap;
     }
     .quota-tip-val.is-5h{ color:#22c55e; }
@@ -2545,8 +2545,8 @@
     .ag-inspector-overlay{
       --insp-ease-out:cubic-bezier(0.23,1,0.32,1);
       --insp-ease-in-out:cubic-bezier(0.77,0,0.175,1);
-      --insp-font-sans:"Segoe UI Variable","Segoe UI",-apple-system,BlinkMacSystemFont,"Microsoft YaHei UI",system-ui,sans-serif;
-      --insp-font-mono:"Cascadia Mono","Consolas","SF Mono","JetBrains Mono",Menlo,ui-monospace,monospace;
+      --insp-font-sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+      --insp-font-mono:"JetBrains Mono","SF Mono","Consolas",ui-monospace,Menlo,monospace;
       --insp-accent:#0A84FF;
       --insp-accent-soft:rgba(10,132,255,0.16);
       --insp-accent-border:rgba(10,132,255,0.42);
@@ -2970,6 +2970,7 @@
       overflow:hidden;flex-shrink:0;
     }
     .insp-quota-cell{padding:13px 15px;display:flex;flex-direction:column;gap:6px;}
+    .insp-quota-cell .insp-meter-track{margin-top:auto;}
     .insp-quota-cell + .insp-quota-cell{border-left:1px solid var(--insp-hairline);}
     .insp-quota-num-row{display:flex;align-items:baseline;justify-content:space-between;gap:6px;flex-wrap:wrap;}
     .insp-quota-big{font-size:21px;font-weight:600;font-family:var(--insp-font-sans);font-variant-numeric:tabular-nums;letter-spacing:-0.02em;}
