@@ -353,7 +353,7 @@
     };
   }
 
-  function resolveModelQuota(modelIdOrName, cascadeModelConfigs, options = {}) {
+  function findCascadeModelConfig(modelIdOrName, cascadeModelConfigs) {
     if (!Array.isArray(cascadeModelConfigs) || !cascadeModelConfigs.length || !modelIdOrName) {
       return null;
     }
@@ -381,6 +381,11 @@
       });
     }
 
+    return matched || null;
+  }
+
+  function resolveModelQuota(modelIdOrName, cascadeModelConfigs, options = {}) {
+    const matched = findCascadeModelConfig(modelIdOrName, cascadeModelConfigs);
     if (!matched) return null;
 
     const avail = classifyModelQuotaAvailability(matched, options?.planStatus || null);
@@ -613,6 +618,12 @@
     const context = m.chatStartMetadata?.contextWindowMetadata;
     const estimate = number(context?.estimatedTokensUsed) || prevContext?.estimate || null;
     const budget = number(context?.maxContextTokens) || prevContext?.budget || null;
+    const matchedConfig = findCascadeModelConfig(modelId || modelRaw || model, options.cascadeModelConfigs);
+    const cfgMax = number(matchedConfig?.maxTokens);
+    const cfgOut = number(matchedConfig?.maxOutputTokens);
+    const modelInputCap = cfgMax > 0
+      ? (cfgOut !== null && cfgOut >= 0 && cfgMax > cfgOut ? cfgMax - cfgOut : cfgMax)
+      : (prevContext?.modelInputCap || null);
 
     // Compute generation duration and output speed (Tokens Per Second)
     const ttft = parseDurationSec(m.timeToFirstToken);
@@ -667,13 +678,15 @@
     else if (estimate > 0) status = 'estimated';
 
     const usedVal = actual ?? (estimate > 0 ? estimate : null);
-    const percentVal = actual !== null && budget > 0 && !exceeded ? (actual / budget * 100) : null;
+    const effectiveBudget = modelInputCap > 0 ? modelInputCap : (budget > 0 ? budget : null);
+    const percentVal = actual !== null && effectiveBudget > 0 && !exceeded ? (actual / effectiveBudget * 100) : null;
 
     return {
       used: usedVal,
       actual,
       estimate: estimate > 0 ? estimate : null,
       budget: budget > 0 ? budget : null,
+      modelInputCap: modelInputCap > 0 ? modelInputCap : null,
       serviceLimit,
       exceeded,
       network,

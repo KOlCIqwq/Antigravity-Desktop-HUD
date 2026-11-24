@@ -31,10 +31,27 @@ test('summarize computes context percent, speed, and TTFT', () => {
   });
   assert.equal(out.actual, 50200);
   assert.equal(out.budget, 100000);
+  assert.equal(out.modelInputCap, null);
   assert.equal(out.status, 'reported');
   assert.equal(out.speed.ttft, 1.5);
   assert.equal(out.speed.duration, 3.5);
   assert.equal(out.speed.streamingTps, 100);
+});
+
+test('summarize derives modelInputCap from cascadeModelConfigs and computes percent against it', () => {
+  const out = core.summarize({
+    chatModel: {
+      modelDisplayName: 'Gemini 4 Hydrogen',
+      model: 'gemini-4-hydrogen',
+      usage: { inputTokens: 57000, cacheReadTokens: 0, outputTokens: 0 },
+      chatStartMetadata: { contextWindowMetadata: { maxContextTokens: 100000 } }
+    }
+  }, {
+    cascadeModelConfigs: [{ model: 'gemini-4-hydrogen', maxTokens: 1048576, maxOutputTokens: 262144 }]
+  });
+  assert.equal(out.budget, 100000);
+  assert.equal(out.modelInputCap, 786432);
+  assert.ok(Math.abs(out.percent - (57000 / 786432) * 100) < 0.001);
 });
 
 test('classifyRequestError detects context overflow', () => {

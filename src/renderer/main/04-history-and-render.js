@@ -1333,24 +1333,25 @@
     if (!tipTitle || !tipPct || !tipDetail) return;
 
     const disp = resolveDisplayStatus(d, session);
+    const displayBudget = d?.modelInputCap > 0 ? d.modelInputCap : (d?.budget > 0 ? d.budget : null);
     if (disp.isError || disp.kind === 'canceled') {
       tipTitle.textContent = disp.tipTitle;
       tipPct.textContent = disp.tipPct;
       tipDetail.textContent = disp.tipDetail;
-    } else if (stale && d?.actual != null && d?.budget) {
-      const usedRound = Math.min(100, Math.max(0, Math.round((d.actual / d.budget) * 100)));
+    } else if (stale && d?.actual != null && displayBudget) {
+      const usedRound = Math.min(100, Math.max(0, Math.round((d.actual / displayBudget) * 100)));
       const remRound = Math.max(0, 100 - usedRound);
       tipTitle.textContent = t('tip.title.stale');
       tipPct.textContent = t('tip.pct.staleVal', { used: usedRound, rem: remRound });
-      tipDetail.textContent = t('tip.detail.usedOfBudget', { used: fmtBubbleToken(d.actual), budget: fmtBubbleToken(d.budget), inc: '' });
+      tipDetail.textContent = t('tip.detail.usedOfBudget', { used: fmtBubbleToken(d.actual), budget: fmtBubbleToken(displayBudget), inc: '' });
     } else if (stale) {
       tipTitle.textContent = t('tip.title.stale');
       tipPct.textContent = t('tip.pct.staleUnknown');
       tipDetail.textContent = session?.total
         ? t('tip.detail.sessionEst', { low: fmtBubbleToken(session.total.low), high: fmtBubbleToken(session.total.high) })
         : t('tip.detail.waitBg');
-    } else if (d?.actual != null && d?.budget) {
-      const rawPct = pct != null ? pct : (d.actual / d.budget) * 100;
+    } else if (d?.actual != null && displayBudget) {
+      const rawPct = pct != null ? pct : (d.actual / displayBudget) * 100;
       const usedRound = rawPct > 0 && rawPct < 1 ? 1 : Math.min(100, Math.max(0, Math.round(rawPct)));
       const remRound = Math.max(0, 100 - usedRound);
       if (rawPct >= 90) {
@@ -1365,17 +1366,17 @@
       }
       tipDetail.textContent = t('tip.detail.usedOfBudget', {
         used: fmtBubbleToken(d.actual),
-        budget: fmtBubbleToken(d.budget),
+        budget: fmtBubbleToken(displayBudget),
         inc: incomplete ? t('tip.detail.incSuffix') : ''
       });
-    } else if (d?.actual != null && !d?.budget) {
+    } else if (d?.actual != null && !displayBudget) {
       tipTitle.textContent = t('tip.title.normal');
       tipPct.textContent = t('tip.pct.noBudget');
       tipDetail.textContent = t('tip.detail.usedNoBudget', { used: fmtBubbleToken(d.actual) });
     } else if (d?.estimated || d?.estimate != null) {
       tipTitle.textContent = t('tip.title.est');
       tipPct.textContent = t('tip.pct.estOnly');
-      const budgetPart = d.budget ? t('tip.detail.estBudgetPart', { budget: fmtBubbleToken(d.budget) }) : t('tip.detail.estNoBudgetPart');
+      const budgetPart = displayBudget ? t('tip.detail.estBudgetPart', { budget: fmtBubbleToken(displayBudget) }) : t('tip.detail.estNoBudgetPart');
       tipDetail.textContent = t('tip.detail.estUsed', { used: fmtBubbleToken(d.estimate), budget: budgetPart });
     } else if (session?.total) {
       tipTitle.textContent = t('tip.title.est');
@@ -2668,14 +2669,15 @@
     const stale = state.requestError || state.requestAt && Date.now() - state.requestAt > 20000;
     const incomplete = session?.unknownFiles > 0;
     const danger = disp.isError || d?.exceeded;
+    const displayBudget = d?.modelInputCap > 0 ? d.modelInputCap : (d?.budget > 0 ? d.budget : null);
 
     let pct = null;
     if (d?.exceeded) {
       pct = 100;
     } else if (d?.percent != null && !danger && !stale) {
       pct = Math.min(100, Math.max(0, d.percent));
-    } else if (d?.actual != null && d?.budget && !danger && !stale) {
-      pct = Math.min(100, Math.max(0, (d.actual / d.budget) * 100));
+    } else if (d?.actual != null && displayBudget && !danger && !stale) {
+      pct = Math.min(100, Math.max(0, (d.actual / displayBudget) * 100));
     }
 
     const barColor = danger ? '#ff4d4f' : pct != null && pct >= 90 ? '#ff4d4f' : pct != null && pct >= 75 || stale || incomplete ? '#faad14' : '#69c0ff';
@@ -2724,7 +2726,7 @@
       const pctStr = pct != null ? ` (${pct.toFixed(0)}%)` : '';
       el('amount').textContent = `${short(d.actual)}${pctStr}`;
       if (badgePctVal) badgePctVal.textContent = pct != null ? `${pct.toFixed(0)}%` : '--%';
-      const budgetStr = d?.budget ? ` / ${short(d.budget)}` : '';
+      const budgetStr = displayBudget ? ` / ${short(displayBudget)}` : '';
       setHoverExtra(`${budgetStr} · ${corpus}`);
     } else {
       el('amount').textContent = t('badge.actualUnknown');
@@ -2767,7 +2769,7 @@
         }
 
         const usedTokenCount = d?.actual != null ? d.actual : (d?.used != null ? d.used : (d?.estimate != null ? d.estimate : (session?.total?.low ?? null)));
-        const budgetTokenCount = d?.budget || (d?.serviceLimit ? d.serviceLimit : 983040);
+        const budgetTokenCount = displayBudget || (d?.serviceLimit ? d.serviceLimit : 983040);
 
         if (disp.isOverflow) {
           if (keyUsed) keyUsed.textContent = d.serviceLimit ? `>${short(d.serviceLimit)}` : t('key.overflowUsed');
@@ -2791,7 +2793,7 @@
         }
         if (keyTakeaway) keyTakeaway.textContent = disp.keyTakeaway;
       } else if (d?.actual != null && pct != null) {
-        const limitVal = d.budget || 256000;
+        const limitVal = displayBudget || 256000;
         const remainVal = Math.max(0, limitVal - d.actual);
         const remainPct = Math.max(0, 100 - pct);
 
@@ -2815,7 +2817,7 @@
       } else {
         if (keyBadge) { keyBadge.textContent = d?.estimated ? t('key.pill.est') : t('key.pill.reading'); keyBadge.className = 'key-pill pill-muted'; }
         if (keyUsed) keyUsed.textContent = d?.estimate ? t('key.estPrefix', { val: short(d.estimate) }) : (session?.total ? short(session.total.low) : '—');
-        if (keyLimit) keyLimit.textContent = d?.budget ? short(d.budget) : '—';
+        if (keyLimit) keyLimit.textContent = displayBudget ? short(displayBudget) : '—';
         if (keyRemaining) keyRemaining.textContent = t('key.pending');
         if (keyTakeaway) keyTakeaway.textContent = t('key.takeaway.est');
       }
